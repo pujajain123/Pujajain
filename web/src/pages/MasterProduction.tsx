@@ -44,7 +44,7 @@ export function MasterProduction() {
     <>
       <div className="page-head">
         <div>
-          <h1>Master production</h1>
+          <div className="eyebrow">Production</div><h1>Master production</h1>
           <div className="sub">Every active order with process-level progress — updates live as staff save job sheets.</div>
         </div>
       </div>

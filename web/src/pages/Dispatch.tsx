@@ -41,7 +41,7 @@ export function Dispatch() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Dispatch</h1><div className="sub">From quality check to the client’s door.</div></div>
+        <div><div className="eyebrow">Operations</div><h1>Dispatch</h1><div className="sub">From quality check to the client’s door.</div></div>
       </div>
       <div className="kpis">
         <Kpi label="In quality check" value={by('quality_check').length} />

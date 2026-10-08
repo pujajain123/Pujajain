@@ -35,7 +35,7 @@ export function JobSheets({ mine }: { mine?: boolean }) {
     <>
       <div className="page-head">
         <div>
-          <h1>{mine ? 'My jobs' : 'Job sheets'}</h1>
+          <div className="eyebrow">Production</div><h1>{mine ? 'My jobs' : 'Job sheets'}</h1>
           <div className="sub">{mine ? `Everything assigned to you, ${user?.name}. Open a job sheet to update production.` : 'Detailed production records for Iron, Rope and Fabric work.'}</div>
         </div>
       </div>

@@ -45,27 +45,39 @@ export const initials = (name?: string | null) =>
 
 export const STAGE_TONE: Record<string, string> = {
   received: '',
-  reviewed: 'info',
+  reviewed: '',
   preparing: 'warn',
-  ready_for_production: 'teal',
-  in_production: 'risk',
-  quality_check: 'violet',
-  ready_for_dispatch: 'info',
-  dispatched: 'teal',
+  ready_for_production: 'warn',
+  in_production: 'ok',
+  quality_check: 'warn',
+  ready_for_dispatch: 'ok',
+  dispatched: 'ok',
   completed: 'ok',
 };
 export const STAGE_COLOR: Record<string, string> = {
-  received: '#56606e',
-  reviewed: '#2f6fed',
-  preparing: '#b7791f',
-  ready_for_production: '#0f8a87',
-  in_production: '#d0661a',
-  quality_check: '#6d4bd8',
-  ready_for_dispatch: '#2f6fed',
-  dispatched: '#0f8a87',
-  completed: '#1f8a4c',
+  received: '#9aa19c',
+  reviewed: '#9aa19c',
+  preparing: '#c2700f',
+  ready_for_production: '#c2700f',
+  in_production: '#1f6b50',
+  quality_check: '#c2700f',
+  ready_for_dispatch: '#1f6b50',
+  dispatched: '#1f6b50',
+  completed: '#1f6b50',
 };
-export const RISK_TONE: Record<DeadlineRisk, string> = { safe: 'ok', approaching: 'warn', at_risk: 'risk', overdue: 'bad', done: 'teal' };
-export const JOB_TONE: Record<string, string> = { not_started: '', in_progress: 'risk', on_hold: 'warn', completed: 'ok', delayed: 'bad' };
-export const PRIORITY_TONE: Record<string, string> = { low: 'outline', normal: '', high: 'risk', urgent: 'bad' };
+export const RISK_TONE: Record<DeadlineRisk, string> = { safe: 'ok', approaching: 'warn', at_risk: 'warn', overdue: 'bad', done: 'ok' };
+export const JOB_TONE: Record<string, string> = { not_started: '', in_progress: 'ok', on_hold: 'warn', completed: 'ok', delayed: 'bad' };
+export const PRIORITY_TONE: Record<string, string> = { low: '', normal: '', high: 'warn', urgent: 'bad' };
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
+
+/** The 9 lifecycle stages shown as 7 steps people recognise (review and production-ready fold into their neighbours). */
+export const STAGE_GROUPS: { key: string; label: string; stages: string[] }[] = [
+  { key: 'received,reviewed', label: 'Order received', stages: ['received', 'reviewed'] },
+  { key: 'preparing,ready_for_production', label: 'Being prepared', stages: ['preparing', 'ready_for_production'] },
+  { key: 'in_production', label: 'In production', stages: ['in_production'] },
+  { key: 'quality_check', label: 'Quality check', stages: ['quality_check'] },
+  { key: 'ready_for_dispatch', label: 'Ready for dispatch', stages: ['ready_for_dispatch'] },
+  { key: 'dispatched', label: 'Dispatched', stages: ['dispatched'] },
+  { key: 'completed', label: 'Completed', stages: ['completed'] },
+];
+export const groupCount = (counts: Record<string, number> | undefined, g: { stages: string[] }) => g.stages.reduce((a, s) => a + (counts?.[s] ?? 0), 0);

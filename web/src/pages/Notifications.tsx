@@ -20,7 +20,7 @@ export function Notifications() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Notifications</h1><div className="sub">Overdue orders, material shortages, approaching deadlines and completed work.</div></div>
+        <div><div className="eyebrow">Overview</div><h1>Notifications</h1><div className="sub">Overdue orders, material shortages, approaching deadlines and completed work.</div></div>
         <div className="row">
           <Seg value={filter} onChange={setFilter} items={[{ key: 'unread', label: 'Unread' }, { key: 'all', label: 'All' }]} />
           <button className="btn" onClick={() => run(() => api.post('/notifications/read-all'), 'All marked as read')}><CheckCheck size={15} /> Mark all read</button>

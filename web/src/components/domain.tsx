@@ -1,10 +1,9 @@
 import { Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertTriangle, PauseCircle, PackageX } from 'lucide-react';
+import { AlertTriangle, PauseCircle, PackageX } from 'lucide-react';
 import type { DeadlineRisk } from '../../../shared/domain';
-import { ORDER_STAGES } from '../../../shared/domain';
-import { fmtDate, fmtShort, fmtTime, relDays, dayKey, STAGE_COLOR, num } from '../lib/format';
-import { useMeta, useStageLabel } from '../lib/meta';
+import { fmtDate, fmtShort, fmtTime, relDays, dayKey, num, STAGE_GROUPS, groupCount } from '../lib/format';
+import { useMeta } from '../lib/meta';
 import { Avatar, Chip, PriorityChip, Progress, RiskChip, StageChip, cx } from './ui';
 
 export interface JobBrief {
@@ -139,20 +138,17 @@ export function OrderCard({ o }: { o: OrderSummary }) {
   );
 }
 
-/** Horizontal pipeline of lifecycle stages with live counts. */
-export function Pipeline({ counts, onPick, active }: { counts: Record<string, number>; onPick: (stage: string) => void; active?: string }) {
-  const label = useStageLabel();
-  const max = Math.max(1, ...ORDER_STAGES.map((s) => counts[s] ?? 0));
+/** Numbered pipeline of lifecycle steps with live counts. Click a step to see its orders. */
+export function Pipeline({ counts, onPick, active }: { counts: Record<string, number>; onPick: (stageKey: string) => void; active?: string }) {
   return (
-    <div className="card pipeline">
-      {ORDER_STAGES.map((s, i) => {
-        const n = counts[s] ?? 0;
+    <div className="pipeline" style={{ ['--steps' as any]: STAGE_GROUPS.length }}>
+      {STAGE_GROUPS.map((g, i) => {
+        const n = groupCount(counts, g);
         return (
-          <div key={s} className={cx('pipe-stage', n === 0 && 'zero')} onClick={() => onPick(s)} style={active === s ? { background: 'var(--surface-2)' } : undefined} role="button" tabIndex={0}>
-            <div className="pipe-count">{String(n).padStart(2, '0')}</div>
-            <div className="pipe-label">{label(s)}</div>
-            <div className="pipe-bar" style={{ background: STAGE_COLOR[s], opacity: n ? 0.25 + (0.75 * n) / max : 0.12 }} />
-            {i < ORDER_STAGES.length - 1 && <ChevronRight className="pipe-arrow" size={16} />}
+          <div key={g.key} className={cx('pipe-stage', n === 0 && 'zero', n > 0 && 'has', active === g.key && 'active')} onClick={() => onPick(g.key)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onPick(g.key)}>
+            <div className="pipe-num">{i + 1}</div>
+            <div className="pipe-count">{n}</div>
+            <div className="pipe-label">{g.label}</div>
           </div>
         );
       })}

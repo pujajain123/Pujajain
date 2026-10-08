@@ -1,100 +1,121 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Hammer, Factory, Boxes, PackagePlus, StickyNote, AlertTriangle, CalendarClock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, Hammer, PackagePlus, StickyNote, Boxes, ClipboardCheck, Target } from 'lucide-react';
 import { useApi } from '../lib/live';
 import { useAuth } from '../lib/auth';
 import { useMeta } from '../lib/meta';
-import { fmtDate, relDays } from '../lib/format';
-import { Card, Empty, ErrorState, JobStatusChip, Kpi, Loading, Progress, Tabs } from '../components/ui';
+import { fmtShort, relDays } from '../lib/format';
+import { Chip, Empty, ErrorState, JobStatusChip, Kpi, Loading, PageHead, Panel, Progress, Seg } from '../components/ui';
 import { StockTxnModal } from './Inventory';
 import { QuickNoteModal } from './QuickNote';
 
-/** Staff home: "What do I need to work on?" — no analytics, just today’s work and quick actions. */
+/** Staff home: "What do I need to work on?" — assigned jobs first, quick actions, no analytics. */
 export function StaffDashboard() {
   const { data, error, reload } = useApi<any>('/dashboard/staff', ['jobs', 'orders']);
   const { user } = useAuth();
   const nav = useNavigate();
-  const [tab, setTab] = useState<'today' | 'upcoming' | 'delayed' | 'completed'>('today');
+  const [tab, setTab] = useState<'active' | 'late' | 'upcoming' | 'done'>('active');
   const [modal, setModal] = useState<null | 'stock' | 'note'>(null);
   if (error) return <ErrorState error={error} retry={reload} />;
-  if (!data) return <Loading rows={4} h={90} />;
-  const lists = { today: data.today_jobs, upcoming: data.upcoming, delayed: data.delayed, completed: data.completed };
-  const firstOpen = data.delayed[0] ?? data.in_progress[0] ?? data.today_jobs[0];
-  const hour = new Date().getHours();
+  if (!data) return <Loading rows={4} h={110} />;
+  const first = user?.name.split(' ')[0];
+  const active = [...data.delayed, ...data.today_jobs, ...data.in_progress].filter((j: any, i: number, a: any[]) => a.findIndex((x) => x.id === j.id) === i);
+  const lists = { active, late: data.delayed, upcoming: data.upcoming, done: data.completed };
+  const next = active[0];
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Good {hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, {user?.name}</h1>
-          <div className="sub">{fmtDate(data.today)} · {data.counts.open} open job(s), {data.counts.units_left} unit(s) to go</div>
+      <PageHead eyebrow="Staff workspace" title={`Your work, ${first}`} sub="Your assigned production jobs, quality checks and material updates." />
+
+      <div className="kpis">
+        <Kpi label="My active jobs" value={data.counts.open} icon={<Hammer size={17} />} foot="Assigned to you" to="/my-jobs" />
+        <Kpi label="Units to finish" value={data.counts.units_left} icon={<Target size={17} />} foot="Across your open jobs" />
+        <Kpi label="Due today / overdue" value={data.counts.delayed + data.today_jobs.filter((j: any) => j.due_date === data.today && !j.overdue).length} tone={data.counts.delayed ? 'alert' : undefined} icon={<Clock size={17} />} foot="Jobs that need attention" to="/my-jobs?due=overdue" />
+        <Kpi label="Completed" value={data.counts.completed_week} icon={<CheckCircle2 size={17} />} foot="Your completed jobs" to="/my-jobs?status=completed" />
+      </div>
+
+      <div className="grid dash-grid mt-24">
+        <Panel
+          title="My jobs"
+          sub="Open a job sheet to record units finished and material used."
+          action={<Seg value={tab} onChange={setTab} items={[{ key: 'active', label: `Active · ${active.length}` }, { key: 'late', label: `Late · ${data.delayed.length}` }, { key: 'upcoming', label: 'Upcoming' }, { key: 'done', label: 'Done' }]} />}
+        >
+          {lists[tab].length === 0 ? (
+            <Empty title={tab === 'late' ? 'Nothing late — good work' : 'No jobs here'} />
+          ) : (
+            <div style={{ marginTop: -10 }}>
+              {lists[tab].map((j: any) => <JobRow key={j.id} j={j} />)}
+            </div>
+          )}
+        </Panel>
+
+        <div className="col gap-24" style={{ minWidth: 0 }}>
+          <Panel title="Quality checks" sub="Orders waiting for inspection before dispatch." action={<Chip tone={data.qc.length ? 'warn' : 'ok'} dot>{data.qc.length} pending</Chip>}>
+            {data.qc.length === 0 ? (
+              <div className="empty small" style={{ padding: '18px 0' }}>No quality checks waiting on your jobs.</div>
+            ) : (
+              <div style={{ marginTop: -8 }}>
+                {data.qc.map((o: any) => (
+                  <Link key={o.id} to={`/orders/${o.id}`} className="att-item">
+                    <span className="att-icon ok"><ClipboardCheck size={17} /></span>
+                    <span style={{ minWidth: 0 }}><div className="t">{o.code} · {o.customer}</div><div className="s truncate">{o.product} × {o.quantity}</div></span>
+                    <span className="meta">due {fmtShort(o.deadline)}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+            <div className="alert info mt-16 small">
+              <span>Each process is checked when it finishes: frames after welding and powder coat, then rope and fabric work. The final check happens before dispatch.</span>
+            </div>
+          </Panel>
+
+          <Panel title="How to update a job" sub="Three steps, once a day or whenever a batch is done.">
+            <ol className="small" style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8, color: 'var(--ink-2)' }}>
+              <li>Open the job from <b>My jobs</b>.</li>
+              <li>Enter the units finished and the material you used.</li>
+              <li>Press <b>Save update</b>. The order, stock and admin dashboard update automatically.</li>
+            </ol>
+          </Panel>
         </div>
       </div>
 
-      <div className="quick">
-        <button onClick={() => (firstOpen ? nav(`/jobs/${firstOpen.id}`) : nav('/my-jobs'))}><Hammer size={20} />Update job</button>
-        <button onClick={() => nav('/my-jobs?status=in_progress')}><Factory size={20} />Update production</button>
-        <button onClick={() => (firstOpen ? nav(`/jobs/${firstOpen.id}`) : nav('/my-jobs'))}><Boxes size={20} />Update material</button>
-        <button onClick={() => setModal('stock')}><PackagePlus size={20} />Update stock</button>
-        <button onClick={() => setModal('note')}><StickyNote size={20} />Add note</button>
-      </div>
+      <Panel title="Quick actions" sub="Record work as it happens. Progress and material usage roll up to the order." className="mt-24">
+        <div className="quick">
+          <button onClick={() => (next ? nav(`/jobs/${next.id}`) : nav('/my-jobs'))}><Hammer size={20} />Update job<span className="d">{next ? `${next.code} · ${next.process_name}` : 'Pick a job'}</span></button>
+          <button onClick={() => nav('/my-jobs')}><ArrowRight size={20} />All my jobs<span className="d">Search and filter</span></button>
+          <button onClick={() => (next ? nav(`/jobs/${next.id}`) : nav('/my-jobs'))}><Boxes size={20} />Record material used<span className="d">On the job sheet</span></button>
+          <button onClick={() => setModal('stock')}><PackagePlus size={20} />Stock received<span className="d">Log rope or fabric in</span></button>
+          <button onClick={() => setModal('note')}><StickyNote size={20} />Add note<span className="d">To an order’s timeline</span></button>
+        </div>
+      </Panel>
 
-      <div className="kpis mt-16">
-        <Kpi label="Open jobs" value={data.counts.open} icon={<Hammer size={14} />} to="/my-jobs" />
-        <Kpi label="Units to go" value={data.counts.units_left} icon={<Factory size={14} />} />
-        <Kpi label="Delayed" value={data.counts.delayed} tone={data.counts.delayed ? 'alert' : undefined} icon={<AlertTriangle size={14} />} to="/my-jobs?due=overdue" />
-        <Kpi label="Completed" value={data.counts.completed_week} icon={<CheckCircle2 size={14} />} to="/my-jobs?status=completed" />
-      </div>
-
-      <div className="section-title"><h2>My jobs</h2><Link to="/my-jobs" className="small muted">All my jobs →</Link></div>
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: 'today', label: "Today's jobs", count: data.today_jobs.length },
-          { key: 'upcoming', label: 'Upcoming', count: data.upcoming.length },
-          { key: 'delayed', label: 'Delayed', count: data.delayed.length, tone: 'bad' },
-          { key: 'completed', label: 'Completed', count: data.completed.length },
-        ]}
-      />
-      <div className="order-grid mt-16">
-        {lists[tab].length === 0 && <div className="card" style={{ gridColumn: '1/-1' }}><Empty title={tab === 'delayed' ? 'Nothing delayed — nice work' : 'No jobs here'} /></div>}
-        {lists[tab].map((j: any) => <JobTile key={j.id} j={j} />)}
-      </div>
-
-      {data.recent.length > 0 && (
-        <Card title="My recent updates" className="mt-24">
-          <div className="col" style={{ gap: 6 }}>
-            {data.recent.map((a: any) => <div key={a.id} className="small"><span className="muted">{fmtDate(a.created_at, false)}</span> · {a.message}</div>)}
-          </div>
-        </Card>
-      )}
       {modal === 'stock' && <StockTxnModal onClose={() => setModal(null)} />}
       {modal === 'note' && <QuickNoteModal onClose={() => setModal(null)} />}
     </>
   );
 }
 
-function JobTile({ j }: { j: any }) {
+function JobRow({ j }: { j: any }) {
   const today = useMeta().today;
+  const late = j.overdue || j.status === 'delayed';
+  const due = j.due_date ?? j.order_deadline;
   return (
-    <Link to={`/jobs/${j.id}`} className="card job-tile" style={j.overdue || j.status === 'delayed' ? { boxShadow: 'inset 3px 0 0 var(--bad), var(--shadow)' } : undefined}>
-      <div className="row between">
-        <span className="mono strong">{j.code}</span>
+    <div className="job-row">
+      <span className={`att-icon ${late ? 'bad' : j.status === 'completed' ? 'ok' : 'ok'}`}>{late ? '!' : j.status === 'completed' ? <CheckCircle2 size={17} /> : <Hammer size={16} />}</span>
+      <div style={{ minWidth: 0 }}>
+        <div className="t">{j.code} · {j.process_name}</div>
+        <div className="s truncate">{j.order_code} · {j.customer} · {j.product}</div>
+        <div className="s">
+          {j.completed_qty}/{j.quantity} units · <span style={late ? { color: 'var(--bad)', fontWeight: 600 } : undefined}>due {fmtShort(due)} ({relDays(due, today).toLowerCase()})</span>
+        </div>
+        <div className="mt-8" style={{ maxWidth: 360 }}><Progress value={j.progress} tone={late ? 'bad' : undefined} /></div>
+      </div>
+      <div className="col" style={{ alignItems: 'flex-end', gap: 10 }}>
         <JobStatusChip status={j.status} overdue={j.overdue} />
+        <Link to={`/jobs/${j.id}`} className={j.status === 'completed' ? 'btn sm' : 'btn sm primary'}>
+          {j.status === 'completed' ? 'View' : 'Update progress'} <ArrowRight size={14} />
+        </Link>
       </div>
-      <div>
-        <div className="strong" style={{ fontSize: 16 }}>{j.process_name}</div>
-        <div className="small muted">{j.order_code} · {j.customer} · {j.product}</div>
-      </div>
-      <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
-        <span className="big-number" style={{ fontSize: 24 }}>{j.completed_qty}</span><span className="muted">/ {j.quantity} done</span>
-      </div>
-      <Progress value={j.progress} tone={j.overdue || j.status === 'delayed' ? 'bad' : undefined} />
-      <div className="row between small">
-        <span className="row gap-4"><CalendarClock size={14} className="muted" />Due {fmtDate(j.due_date ?? j.order_deadline, false)}</span>
-        <span className={j.overdue ? '' : 'muted'} style={j.overdue ? { color: 'var(--bad)', fontWeight: 600 } : undefined}>{relDays(j.due_date ?? j.order_deadline, today)}</span>
-      </div>
-      <div className="small strong row gap-4" style={{ color: 'var(--accent)' }}>{j.status === 'completed' ? 'View job sheet' : 'Update this job'} <ArrowRight size={13} /></div>
-    </Link>
+    </div>
   );
 }

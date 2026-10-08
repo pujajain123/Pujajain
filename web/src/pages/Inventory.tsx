@@ -23,7 +23,7 @@ export function Inventory() {
     <>
       <div className="page-head">
         <div>
-          <h1>{admin ? 'Inventory' : 'Materials'}</h1>
+          <div className="eyebrow">Operations</div><h1>{admin ? 'Inventory' : 'Materials'}</h1>
           <div className="sub">Balances are calculated from the stock ledger — opening + incoming ± adjustments − consumption − wastage. Nothing is overwritten.</div>
         </div>
         <div className="row">

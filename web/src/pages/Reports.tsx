@@ -17,7 +17,7 @@ export function Reports() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Reports</h1><div className="sub">Orders, production, inventory and staff performance for the selected period.</div></div>
+        <div><div className="eyebrow">Insight</div><h1>Reports</h1><div className="sub">Orders, production, inventory and staff performance for the selected period.</div></div>
         <div className="row wrap">
           <Seg value={preset} onChange={pick} items={[{ key: '7', label: '7 days' }, { key: '30', label: '30 days' }, { key: '90', label: '90 days' }]} />
           <Field><Input type="date" value={range.from} max={range.to} onChange={(e) => (setPreset(''), setRange({ ...range, from: e.target.value }))} style={{ height: 32 }} aria-label="From" /></Field>

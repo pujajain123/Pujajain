@@ -15,7 +15,7 @@ export function ActivityLog() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Activity log</h1><div className="sub">Append-only audit trail: who changed what, when, from what to what. Entries can’t be edited or deleted.</div></div>
+        <div><div className="eyebrow">Workspace</div><h1>Activity log</h1><div className="sub">Append-only audit trail: who changed what, when, from what to what. Entries can’t be edited or deleted.</div></div>
       </div>
       <div className="filters">
         <div className="search" style={{ maxWidth: 280 }}><Search size={15} style={{ top: 9 }} /><Input className="search-in" style={{ height: 32, paddingLeft: 32 }} placeholder="Search messages (e.g. UM-1024)" value={f.q} onChange={set('q')} /></div>

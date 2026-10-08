@@ -177,7 +177,7 @@ export function NewOrder() {
       <div className="crumbs"><Link to="/orders" className="row gap-4"><ChevronLeft size={14} /> Orders</Link></div>
       <div className="page-head">
         <div>
-          <h1>New order</h1>
+          <div className="eyebrow">Orders</div><h1>New order</h1>
           <div className="sub">Enter it once — the client, product, quantity and deadline flow to every job sheet, dashboard and dispatch record.</div>
         </div>
       </div>

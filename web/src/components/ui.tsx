@@ -277,8 +277,8 @@ export function Kpi({ label, value, foot, tone, icon, to }: { label: string; val
   const body = (
     <>
       <div className="kpi-label">
-        {icon}
-        {label}
+        <span>{label}</span>
+        {icon && <span className="kpi-icon">{icon}</span>}
       </div>
       <div className="kpi-value">{value}</div>
       {foot && <div className="kpi-foot">{foot}</div>}
@@ -290,6 +290,36 @@ export function Kpi({ label, value, foot, tone, icon, to }: { label: string; val
     </Link>
   ) : (
     <div className={cx('card kpi', tone)}>{body}</div>
+  );
+}
+
+/** Page title block: eyebrow, title, one-line description, primary action. */
+export function PageHead({ eyebrow, title, sub, actions }: { eyebrow?: ReactNode; title: ReactNode; sub?: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="page-head">
+      <div>
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+        <h1>{title}</h1>
+        {sub && <div className="sub">{sub}</div>}
+      </div>
+      {actions && <div className="row wrap">{actions}</div>}
+    </div>
+  );
+}
+
+/** Card with a title + description header, as used across dashboards. */
+export function Panel({ title, sub, action, children, className, flush }: { title: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; flush?: boolean }) {
+  return (
+    <section className={cx('card', className)}>
+      <div className="card-head">
+        <div>
+          <h2>{title}</h2>
+          {sub && <div className="sub">{sub}</div>}
+        </div>
+        {action}
+      </div>
+      <div className={flush ? '' : 'card-body'} style={flush ? { paddingTop: 10 } : undefined}>{children}</div>
+    </section>
   );
 }
 

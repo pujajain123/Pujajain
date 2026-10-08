@@ -16,7 +16,7 @@ export function Staff() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Staff</h1><div className="sub">People, roles and who works on which process.</div></div>
+        <div><div className="eyebrow">Workspace</div><h1>Staff</h1><div className="sub">People, roles and who works on which process.</div></div>
         <button className="btn accent" onClick={() => setEdit({})}><Plus size={14} /> Add user</button>
       </div>
       {!data ? <Loading rows={6} h={44} /> : (

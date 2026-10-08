@@ -48,7 +48,10 @@ r.get(
     else if (stage === 'delayed') list = list.filter((o) => o.delayed);
     else if (stage === 'on_hold') list = list.filter((o) => o.on_hold);
     else if (stage === 'active') list = list.filter((o) => o.stage !== 'completed');
-    else if (stage && ORDER_STAGES.includes(stage as OrderStage)) list = list.filter((o) => o.stage === stage);
+    else if (stage) {
+      const wanted = stage.split(',').filter((s) => ORDER_STAGES.includes(s as OrderStage));
+      if (wanted.length) list = list.filter((o) => wanted.includes(o.stage));
+    }
     if (risk) list = list.filter((o) => risk.split(',').includes(o.risk));
     if (priority) list = list.filter((o) => o.priority === priority);
     if (customer) list = list.filter((o) => o.customer_id === Number(customer));

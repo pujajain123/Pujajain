@@ -8,7 +8,7 @@ export function SettingsPage() {
   const [tab, setTab] = useState<'general' | 'stages' | 'processes' | 'products' | 'clients'>('general');
   return (
     <>
-      <div className="page-head"><div><h1>Settings</h1><div className="sub">Lifecycle labels, job sheet fields, products, clients and alert thresholds. Every change is audited.</div></div></div>
+      <div className="page-head"><div><div className="eyebrow">Workspace</div><h1>Settings</h1><div className="sub">Lifecycle labels, job sheet fields, products, clients and alert thresholds. Every change is audited.</div></div></div>
       <Tabs value={tab} onChange={setTab} items={[{ key: 'general', label: 'General' }, { key: 'stages', label: 'Order lifecycle' }, { key: 'processes', label: 'Processes & job sheets' }, { key: 'products', label: 'Products' }, { key: 'clients', label: 'Clients' }]} />
       <div className="mt-16">
         {tab === 'general' && <General />}
