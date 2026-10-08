@@ -1,0 +1,123 @@
+{
+  "_readme": "Maps each app field to the column header in your exported CSV. Headers below are ASSUMED — open each sheet, export it as CSV (File → Download → CSV) and replace the right-hand values with the exact header text. Matching ignores case and extra spaces. Remove a line if the sheet has no such column.",
+
+  "date_format": "DD/MM/YYYY",
+
+  "orders": {
+    "_sheet": "ORDER DETAILED SHEET (+ MASTER PRODUCTION SHEET columns, if exported together)",
+    "order_code": "Order ID",
+    "client": "Client Name",
+    "contact_person": "Contact Person",
+    "phone": "Contact Number",
+    "email": "Email",
+    "address": "Address",
+    "city": "City",
+    "po_number": "PO Number",
+    "source": "Order Source",
+    "product": "Product",
+    "quantity": "Quantity",
+    "dimensions": "Size",
+    "color": "Colour",
+    "finish": "Finish",
+    "specifications": "Specifications",
+    "order_date": "Order Date",
+    "sky_date": "Sky Date",
+    "deadline": "Delivery Date",
+    "priority": "Priority",
+    "status": "Status",
+    "notes": "Remarks"
+  },
+
+  "master_production": {
+    "_sheet": "MASTER PRODUCTION SHEET — only needed if exported separately; joined on order_code",
+    "order_code": "Order ID",
+    "sky_date": "Sky Date",
+    "deadline": "Deadline",
+    "status": "Current Stage",
+    "iron_status": "Iron Work",
+    "rope_status": "Rope Work",
+    "fabric_status": "Fabric Work"
+  },
+
+  "jobs": {
+    "_sheet": "JOB SHEET — one row per order × process",
+    "order_code": "Order ID",
+    "process": "Process",
+    "staff": "Assigned To",
+    "quantity": "Qty",
+    "completed_qty": "Completed",
+    "start_date": "Start Date",
+    "due_date": "Target Date",
+    "status": "Status",
+    "material": "Material",
+    "material_required": "Material Required",
+    "material_used": "Material Used",
+    "notes": "Notes",
+    "specs": {
+      "frame_design": "Frame Design",
+      "metal": "Metal",
+      "section_size": "Pipe Size",
+      "finish": "Coating",
+      "coat_color": "Coat Colour",
+      "rope_type": "Rope Type",
+      "rope_color": "Rope Colour",
+      "thickness_mm": "Rope Thickness",
+      "weave_pattern": "Weave Pattern",
+      "fabric_type": "Fabric Type",
+      "fabric_code": "Fabric Code",
+      "cushion_size": "Cushion Size",
+      "foam": "Foam",
+      "stitching": "Stitching"
+    }
+  },
+
+  "stock": {
+    "_sheet": "ROPE STOCK SHEET / FABRIC STOCK SHEET — current balances become opening stock",
+    "code": "Item Code",
+    "name": "Item",
+    "variant": "Type",
+    "color": "Colour",
+    "unit": "Unit",
+    "quantity": "Current Stock",
+    "reorder_level": "Min Stock",
+    "supplier": "Supplier",
+    "location": "Location"
+  },
+
+  "status_map": {
+    "_readme": "Sheet status text (lower-case) → lifecycle stage",
+    "new": "received",
+    "received": "received",
+    "confirmed": "reviewed",
+    "reviewed": "reviewed",
+    "preparing": "preparing",
+    "in preparation": "preparing",
+    "material pending": "preparing",
+    "ready": "ready_for_production",
+    "in production": "in_production",
+    "production": "in_production",
+    "wip": "in_production",
+    "qc": "quality_check",
+    "quality check": "quality_check",
+    "packed": "ready_for_dispatch",
+    "ready for dispatch": "ready_for_dispatch",
+    "dispatched": "dispatched",
+    "delivered": "completed",
+    "completed": "completed",
+    "done": "completed"
+  },
+
+  "process_map": {
+    "iron": "iron", "iron work": "iron", "welding": "iron", "frame": "iron",
+    "rope": "rope", "rope work": "rope", "weaving": "rope",
+    "fabric": "fabric", "fabric work": "fabric", "cushion": "fabric", "upholstery": "fabric"
+  },
+
+  "job_status_map": {
+    "": "not_started", "pending": "not_started", "not started": "not_started",
+    "wip": "in_progress", "in progress": "in_progress", "ongoing": "in_progress",
+    "hold": "on_hold", "on hold": "on_hold",
+    "done": "completed", "completed": "completed", "complete": "completed",
+    "delayed": "delayed", "late": "delayed"
+  }
+}

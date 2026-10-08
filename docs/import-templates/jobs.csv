@@ -1,0 +1,6 @@
+Order ID,Process,Assigned To,Qty,Completed,Start Date,Target Date,Status,Material,Material Required,Material Used,Notes,Frame Design,Metal,Pipe Size,Rope Type,Rope Colour,Weave Pattern,Fabric Type,Fabric Code,Foam
+UM-2001,Iron Work,Rahul,20,20,02/10/2026,08/10/2026,Done,,,,Frames ready,LC-v2,MS (Mild Steel),25x25,,,,,,
+UM-2001,Rope Work,Imran,20,8,08/10/2026,14/10/2026,WIP,Olefin 6mm Charcoal,50,20,,,,,6mm Olefin,Charcoal,Criss-cross,,,
+UM-2001,Fabric Work,Neha,20,0,12/10/2026,17/10/2026,Pending,Acrylic Ecru,45,,,,,,,,,Outdoor acrylic,ACR-ECR,Quick-dry foam
+UM-2002,Iron Work,Sunil,12,0,,,,,,,,,,,,,,,,
+UM-2002,Rope Work,Amit,12,0,,,,Olefin 6mm Charcoal,15,,,,,,,,,,,
