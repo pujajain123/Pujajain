@@ -3,6 +3,8 @@ import { api } from './api';
 
 /** Live data: the server pushes "topics changed" over SSE; hooks refetch when their topic bumps. */
 type Versions = Record<string, number>;
+/** The browser-only demo replaces Server-Sent Events with an in-page subscription. */
+export const liveSource: { subscribe?: (fn: (topics: string[]) => void) => () => void } = {};
 const LiveCtx = createContext<{ versions: Versions; connected: boolean; bump: (...t: string[]) => void }>({ versions: {}, connected: false, bump: () => {} });
 
 export function LiveProvider({ children }: { children: ReactNode }) {
@@ -16,6 +18,10 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   useEffect(() => {
+    if (liveSource.subscribe) {
+      setConnected(true);
+      return liveSource.subscribe((topics) => bump(...topics));
+    }
     let es: EventSource | null = null;
     let retry: ReturnType<typeof setTimeout>;
     const connect = () => {

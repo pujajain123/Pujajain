@@ -13,6 +13,7 @@ import {
   Alert, Avatar, Card, Chip, Empty, ErrorState, Field, Input, JobStatusChip, Loading, Modal, PriorityChip, Progress, RiskChip, Select, StageChip, Tabs, Textarea, cx, useAction,
 } from '../components/ui';
 import { ActivityFeed, MaterialBar } from '../components/domain';
+import { DEMO } from '../lib/env';
 
 export function OrderDetail() {
   const id = Number(useParams().id);
@@ -893,7 +894,7 @@ function Attachments({ orderId, rows, stage }: { orderId: number; rows: any[]; s
             <tbody>
               {rows.map((a) => (
                 <tr key={a.id}>
-                  <td><a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" className="strong row gap-4"><Paperclip size={13} />{a.filename}</a></td>
+                  <td>{DEMO ? <span className="strong row gap-4"><Paperclip size={13} />{a.filename}</span> : <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" className="strong row gap-4"><Paperclip size={13} />{a.filename}</a>}</td>
                   <td>{a.stage ? cap(a.stage) : '—'}</td>
                   <td className="muted">{(a.size / 1024).toFixed(0)} KB</td>
                   <td className="small">{a.uploaded_by_name} · {fmtDateTime(a.created_at)}</td>

@@ -29,6 +29,10 @@ Production: `npm run build && npm start` serves the built app and API from one p
 | `APP_TZ` | `Asia/Kolkata` | Defines "today" for deadlines |
 | `INSECURE_COOKIES` | — | Set to `1` to run production mode over plain HTTP (local testing only) |
 
+## Browser-only demo
+
+`npm run build:demo` builds `dist-demo/umami-ops.html`, a single self-contained page that runs the same server code (routes, status engine, seed data) in the browser. It uses a pure-JS SQLite build and small stand-ins for Express and Node built-ins, which live in `web/src/demo/`. Data is saved to the viewer's browser storage. The demo is for previewing only: its password hashing is not secure, and file attachments are kept only until the tab closes.
+
 ## Stack
 
 - **Server:** Node 22, Express, Zod validation. SQLite through Node's built-in `node:sqlite`, so there are no native modules to install.

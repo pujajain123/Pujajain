@@ -8,6 +8,7 @@ import { useAuth, useUnreadSync } from '../lib/auth';
 import { useLive, useApi } from '../lib/live';
 import { api } from '../lib/api';
 import { Avatar, StageChip, cx } from './ui';
+import { DEMO } from '../lib/env';
 
 type NavItem = { to: string; label: string; icon: ReactNode; count?: number; alert?: boolean; end?: boolean };
 
@@ -87,7 +88,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <Menu size={18} />
           </button>
           <GlobalSearch />
-          <div className="row" style={{ marginLeft: 'auto' }}>
+          {DEMO && (
+            <span className="row small hide-sm" style={{ marginLeft: 'auto' }}>
+              <span className="chip info">Demo</span>
+              <span className="muted">Data is saved in this browser only</span>
+              <button className="btn ghost sm" onClick={() => (window as any).__umamiReset?.()}>Reset demo data</button>
+            </span>
+          )}
+          <div className="row" style={{ marginLeft: DEMO ? 0 : 'auto' }}>
             <span className="row small muted" title={connected ? 'Live updates connected' : 'Reconnecting…'}>
               <span className={cx('live-dot', !connected && 'off')} />
               <span className="hide-sm">{connected ? 'Live' : 'Offline'}</span>

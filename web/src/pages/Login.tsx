@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { Alert, Field, Input } from '../components/ui';
+import { DEMO } from '../lib/env';
 
 const FLOW = ['Order Received', 'Being Prepared', 'In Production', 'Quality Check', 'Ready for Dispatch', 'Dispatched', 'Completed'];
 
@@ -53,7 +54,7 @@ export function Login() {
         <form onSubmit={submit} noValidate>
           <div>
             <h1>Sign in</h1>
-            <div className="muted mt-8">Use your Umami Studios account.</div>
+            <div className="muted mt-8">{DEMO ? 'This is a demo with sample data. Pick an account below to sign in.' : 'Use your Umami Studios account.'}</div>
           </div>
           {error && <Alert tone="bad">{error}</Alert>}
           <Field label="Email">

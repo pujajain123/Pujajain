@@ -4,7 +4,18 @@ export class ApiError extends Error {
   }
 }
 
+/** In the browser-only demo build the API runs in-process instead of over HTTP. */
+export const transport: { request?: (method: string, url: string, body?: unknown) => Promise<{ status: number; data: any }> } = {};
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  if (transport.request) {
+    const { status, data } = await transport.request(method, `/api${url}`, body);
+    if (status >= 400) {
+      if (status === 401 && !url.startsWith('/auth/')) window.dispatchEvent(new Event('umami:unauthorized'));
+      throw new ApiError(status, data?.error ?? `Request failed (${status})`, data?.fields, data?.details);
+    }
+    return data as T;
+  }
   const res = await fetch(`/api${url}`, {
     method,
     credentials: 'same-origin',
