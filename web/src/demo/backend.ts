@@ -2,8 +2,8 @@
 import './polyfill';
 import { initSql, current } from './sqlite-shim';
 
-const STORE_KEY = 'umami-demo-db-v1';
-const SESSION_KEY = 'umami-demo-session';
+const STORE_KEY = 'umami-demo-db-v2'; // bump when the schema changes so old browser copies are replaced
+const SESSION_KEY = 'umami-demo-session-v2';
 
 type Listener = (topics: string[]) => void;
 const listeners = new Set<Listener>();
