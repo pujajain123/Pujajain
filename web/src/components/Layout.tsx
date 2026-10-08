@@ -76,10 +76,13 @@ export function Layout({ children }: { children: ReactNode }) {
             <div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }} className="truncate">{user?.name}</div>
             <div style={{ fontSize: 11.5, color: '#8d9097' }}>{admin ? 'Admin' : 'Staff'}</div>
           </div>
-          <button className="btn ghost icon-btn sm" style={{ color: '#c9cbd0' }} onClick={logout} title="Sign out" aria-label="Sign out">
-            <LogOut size={16} />
-          </button>
+          {!DEMO && (
+            <button className="btn ghost icon-btn sm" style={{ color: '#c9cbd0' }} onClick={logout} title="Sign out" aria-label="Sign out">
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
+        {DEMO && <ViewAs />}
       </aside>
       {open && <div className="overlay" style={{ zIndex: 55 }} onClick={() => setOpen(false)} />}
       <div className="main">
@@ -108,6 +111,39 @@ export function Layout({ children }: { children: ReactNode }) {
         </header>
         <main className="page">{children}</main>
       </div>
+    </div>
+  );
+}
+
+const DEMO_USERS = [
+  ['admin@umami.studio', 'Admin'],
+  ['amit@umami.studio', 'Amit · Rope staff'],
+  ['rahul@umami.studio', 'Rahul · Iron staff'],
+  ['neha@umami.studio', 'Neha · Fabric staff'],
+  ['vikram@umami.studio', 'Vikram · QC & dispatch'],
+];
+
+/** Demo only: switch between admin and staff dashboards without signing in. */
+function ViewAs() {
+  const { user, login } = useAuth();
+  const nav = useNavigate();
+  return (
+    <div style={{ padding: '4px 8px 0' }}>
+      <label htmlFor="view-as" style={{ fontSize: 11, color: '#8d9097', display: 'block', marginBottom: 4 }}>View as</label>
+      <select
+        id="view-as"
+        className="select"
+        style={{ height: 32, background: '#222327', color: '#e5e6e9', borderColor: '#33353b', fontSize: 13 }}
+        value={user?.email}
+        onChange={async (e) => {
+          await login(e.target.value, 'umami123');
+          nav('/');
+        }}
+      >
+        {DEMO_USERS.map(([email, label]) => (
+          <option key={email} value={email}>{label}</option>
+        ))}
+      </select>
     </div>
   );
 }
