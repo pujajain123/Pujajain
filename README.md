@@ -4,6 +4,10 @@ Umami Studios' internal system for order lifecycle, production, job sheets, inve
 
 > Every order has a lifecycle: **Received → Reviewed → Being Prepared → Ready for Production → In Production → Quality Check → Ready for Dispatch → Dispatched → Completed**. Orders can also be put **On Hold** or **Cancelled**, and are flagged **Delayed** automatically.
 
+## Starting data
+
+The seed loads the real Master Production Sheet (7 orders, 35 product lines) and the rope stock workbook (113 SKUs, in metres) from `server/data/`, plus six sample orders (UM-1043 to UM-1048) that show every lifecycle stage. Fabric stock is sample data, because no fabric workbook was supplied.
+
 ## Quick start
 
 ```bash
@@ -15,9 +19,9 @@ Open http://localhost:5173. Every demo account uses the password `umami123`.
 
 | Account | Role | What to try |
 |---|---|---|
-| `admin@umami.studio` | Admin | Dashboard → pipeline → UM-1024 → lifecycle timeline |
-| `amit@umami.studio` | Staff (Rope) | Dashboard → open JOB-049 (UM-1024 rope work) → **Save update** |
-| `rahul@umami.studio` / `neha@umami.studio` | Staff (Iron / Fabric) | |
+| `shubham@umami.studio` | Admin | Dashboard → Master production → UM-1048 → its job sheets |
+| `amit@umami.studio` | Staff (Rope) | Dashboard → open a rope job → steps, QC and **Save update** |
+| `rahul@`, `karan@`, `neha@`, `pooja@umami.studio` | Staff (Iron / Fabric) | |
 
 Production: `npm run build && npm start` serves the built app and API from one port (`PORT`, default 4000).
 `npm run seed` wipes the database and reloads the demo data. `npm test` runs the workflow tests.

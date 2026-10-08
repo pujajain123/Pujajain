@@ -24,9 +24,15 @@ export const PROCESS_FIELDS = {
     { key: 'rope_color', label: 'Rope colour', type: 'text', section: 'Specification' },
     { key: 'thickness_mm', label: 'Thickness', type: 'number', unit: 'mm', section: 'Specification' },
     { key: 'weave_pattern', label: 'Weave pattern', type: 'select', options: ['Criss-cross', 'Basket', 'Herringbone', 'Parallel wrap', 'Macramé knot', 'Custom'], section: 'Specification' },
-    { key: 'rope_per_unit', label: 'Rope per unit', type: 'number', unit: 'kg', section: 'Process' },
+    { key: 'rope_per_unit', label: 'Rope per unit', type: 'number', unit: 'm', section: 'Process' },
     { key: 'weaver_team', label: 'Weaver team / karigar', type: 'text', section: 'Process' },
     { key: 'piece_rate', label: 'Piece rate', type: 'number', unit: '₹/unit', section: 'Process' },
+  ],
+  tile: [
+    { key: 'top_material', label: 'Top material', type: 'select', options: ['Stone', 'Tile', 'Terrazzo', 'Wood', 'Glass'], section: 'Specification' },
+    { key: 'top_size', label: 'Top size', type: 'text', section: 'Specification' },
+    { key: 'thickness', label: 'Thickness', type: 'number', unit: 'mm', section: 'Specification' },
+    { key: 'supplier', label: 'Supplier', type: 'text', section: 'Process' },
   ],
   fabric: [
     { key: 'fabric_type', label: 'Fabric type', type: 'text', section: 'Specification' },
@@ -40,6 +46,39 @@ export const PROCESS_FIELDS = {
     { key: 'tailor', label: 'Tailor', type: 'text', section: 'Process' },
   ],
 };
+
+/** Production steps and QC gates per process (from the iron/rope/fabric job sheets and the production tracker). */
+export const PROCESS_STEPS: Record<string, { key: string; label: string; kind: 'work' | 'qc' }[]> = {
+  iron: [
+    { key: 'frame', label: 'Framework fabrication', kind: 'work' },
+    { key: 'frame_qc', label: 'Framework inspection', kind: 'qc' },
+    { key: 'powder', label: 'Powder coating', kind: 'work' },
+    { key: 'powder_qc', label: 'Powder-coating inspection', kind: 'qc' },
+  ],
+  rope: [
+    { key: 'weaving', label: 'Weaving', kind: 'work' },
+    { key: 'weaving_qc', label: 'Weaving inspection', kind: 'qc' },
+  ],
+  fabric: [
+    { key: 'upholstery', label: 'Upholstery', kind: 'work' },
+    { key: 'upholstery_qc', label: 'Upholstery inspection', kind: 'qc' },
+  ],
+  tile: [{ key: 'tile', label: 'Tile / stone work', kind: 'work' }],
+};
+
+/** QC checklist printed on the iron-work job sheet. */
+export const IRON_CHECKLIST = [
+  ['dimensions', 'Dimensions verified'],
+  ['material', 'Material verified'],
+  ['pipe', 'Pipe section verified'],
+  ['welding', 'Welding quality approved'],
+  ['grinding', 'Grinding & finishing complete'],
+  ['powder', 'Powder coating approved'],
+  ['level', 'Frame level & wobble-free'],
+  ['surface', 'No dents / scratches'],
+  ['hardware', 'Hardware / adjusters fitted'],
+  ['final', 'Final approval'],
+].map(([key, label]) => ({ key, label }));
 
 export function bootstrap() {
   for (const [key, name] of [
@@ -56,10 +95,14 @@ export function bootstrap() {
     ['iron', 'Iron Work', 1, null],
     ['rope', 'Rope Work', 2, 'rope'],
     ['fabric', 'Fabric Work', 3, 'fabric'],
+    ['tile', 'Tile / Stone Work', 4, null],
   ] as const;
   for (const [key, name, seq, cat] of procs) {
     if (!get('SELECT 1 FROM job_processes WHERE key=?', key))
-      insert('INSERT INTO job_processes (key, name, sequence, material_category, fields_json) VALUES (?,?,?,?,?)', key, name, seq, cat, JSON.stringify(PROCESS_FIELDS[key]));
+      insert(
+        'INSERT INTO job_processes (key, name, sequence, material_category, fields_json, steps_json, checklist_json) VALUES (?,?,?,?,?,?,?)',
+        key, name, seq, cat, JSON.stringify(PROCESS_FIELDS[key]), JSON.stringify(PROCESS_STEPS[key]), JSON.stringify(key === 'iron' ? IRON_CHECKLIST : []),
+      );
   }
 
   const defaults: Record<string, string> = {

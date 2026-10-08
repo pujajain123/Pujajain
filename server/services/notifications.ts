@@ -93,7 +93,8 @@ export async function refreshAlerts() {
       }
     }
     for (const j of o.jobs) {
-      if (j.overdue) {
+      // When the whole order is already overdue, the order alert covers its job sheets.
+      if (j.overdue && left >= 0) {
         const n = {
           type: 'job_overdue',
           severity: 'warning' as const,

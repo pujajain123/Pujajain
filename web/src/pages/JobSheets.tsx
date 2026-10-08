@@ -1,11 +1,12 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, LayoutGrid, List, ImageIcon } from 'lucide-react';
 import { useApi } from '../lib/live';
 import { qs } from '../lib/api';
 import { useMeta } from '../lib/meta';
 import { useAuth } from '../lib/auth';
 import { fmtDate } from '../lib/format';
-import { Avatar, Card, Empty, ErrorState, Input, JobStatusChip, Loading, PriorityChip, Progress, Select, Tabs } from '../components/ui';
+import { Avatar, Card, Empty, ErrorState, Input, JobStatusChip, Loading, PriorityChip, Progress, Select, Seg, Tabs } from '../components/ui';
+import { JOB_STATUS_LABELS } from '../../../shared/domain';
 
 /** Job Sheets register — every production job with search and filters. `mine` = staff's My Jobs view. */
 export function JobSheets({ mine }: { mine?: boolean }) {
@@ -28,6 +29,7 @@ export function JobSheets({ mine }: { mine?: boolean }) {
     v ? p.set(k, v) : p.delete(k);
     setParams(p, { replace: true });
   };
+  const view = params.get('view') === 'table' ? 'table' : 'board';
   const { data, error, reload } = useApi<any[]>(`/jobs${qs(f)}`, ['jobs', 'orders']);
   const processTabs = [{ key: '', label: 'All processes' }, ...meta.processes.map((p) => ({ key: p.key, label: p.name }))];
 
@@ -67,11 +69,38 @@ export function JobSheets({ mine }: { mine?: boolean }) {
           <option value="week">Due in 7 days</option>
         </Select>
         <label className="check small"><input type="checkbox" checked={f.closed === '1'} onChange={(e) => set('closed', e.target.checked ? '1' : '')} /> Include completed orders</label>
+        <span className="result-count">{data ? `${data.length} job sheets` : ''}</span>
+        <Seg value={view} onChange={(v) => set('view', v === 'board' ? '' : v)} items={[{ key: 'board', label: <><LayoutGrid size={14} /> Board</> }, { key: 'table', label: <><List size={14} /> Table</> }]} />
       </div>
       {error ? (
         <ErrorState error={error} retry={reload} />
       ) : !data ? (
         <Loading rows={6} h={44} />
+      ) : view === 'board' ? (
+        <div className="board">
+          {(['not_started', 'in_progress', 'on_hold', 'delayed', 'completed'] as const).map((st) => {
+            const col = data.filter((j) => (st === 'delayed' ? j.status === 'delayed' : j.status === st));
+            return (
+              <section key={st} className="board-col">
+                <h3>{JOB_STATUS_LABELS[st]} <span className="pill-count">{col.length}</span></h3>
+                {col.length === 0 && <div className="small muted" style={{ padding: '4px 6px' }}>None</div>}
+                {col.map((j) => (
+                  <article key={j.id} className="board-card" onClick={() => nav(`/jobs/${j.id}`)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && nav(`/jobs/${j.id}`)}>
+                    <div className="meta">{j.code} · {j.order_code}{j.has_photo ? <ImageIcon size={11} style={{ marginLeft: 5, verticalAlign: -1 }} /> : null}</div>
+                    <div className="strong">{j.process_name}</div>
+                    <div className="small muted truncate">{j.customer} · {j.product}</div>
+                    {j.current_step && j.status !== 'completed' && <div className="small"><span className="pill" style={{ height: 22, fontSize: 11.5 }}>Next: {j.current_step}</span></div>}
+                    <div className="row between small" style={{ borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 2 }}>
+                      <span>{j.assignee ?? <span className="muted">Unassigned</span>}</span>
+                      <span style={j.overdue ? { color: 'var(--bad)', fontWeight: 600 } : { color: 'var(--muted)' }}>{fmtDate(j.due_date, false)}</span>
+                    </div>
+                    <Progress value={j.progress} tone={j.status === 'delayed' || j.overdue ? 'bad' : undefined} label={<><span className="muted">{j.completed_qty} / {j.quantity} units · {j.steps_done}/{j.steps_total} steps</span><span className="strong">{j.progress}%</span></>} />
+                  </article>
+                ))}
+              </section>
+            );
+          })}
+        </div>
       ) : (
         <Card pad={false}>
           {data.length === 0 ? (

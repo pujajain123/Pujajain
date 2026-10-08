@@ -71,7 +71,7 @@ export function Login() {
             <div className="muted mt-8">Password for all: <span className="mono">umami123</span></div>
             <div className="row wrap mt-8">
               {[
-                ['admin@umami.studio', 'Admin'],
+                ['shubham@umami.studio', 'Shubham · Admin'],
                 ['amit@umami.studio', 'Amit · Rope'],
                 ['rahul@umami.studio', 'Rahul · Iron'],
                 ['neha@umami.studio', 'Neha · Fabric'],

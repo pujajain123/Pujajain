@@ -5,6 +5,7 @@ import type { AuthUser } from '../auth.ts';
 import { logActivity, logFieldChanges } from './activity.ts';
 import { autoAdvance, orderProgress } from './orders.ts';
 import { postTxn } from './inventory.ts';
+import { jobChecklist, jobSteps, stepsComplete } from './steps.ts';
 import { notifyAdmins, notifyUser } from './notifications.ts';
 
 export function jobRow(id: number) {
@@ -12,7 +13,7 @@ export function jobRow(id: number) {
     `SELECT j.*, p.key AS process_key, p.name AS process_name, p.fields_json, p.material_category,
        o.code AS order_code, o.stage AS order_stage, o.deadline AS order_deadline, o.sky_date AS order_sky_date, o.priority,
        o.on_hold AS order_on_hold, o.cancelled_at AS order_cancelled_at,
-       c.name AS customer, pr.name AS product, pr.sku AS product_sku, i.dimensions, i.finish, i.color, i.specifications,
+       c.name AS customer, pr.name AS product, pr.sku AS product_sku, i.dimensions, i.finish, i.color, i.specifications, i.frame_material, i.powder_color, i.dori_color, i.rope_code, i.rope_required, i.fabric_code, i.fabric_company, i.fabric_qty, i.seat_height, i.seat_bifurcation, i.back_cushion, i.extra_cushion, i.table_top, i.buffer_type, i.photo,
        u.name AS assignee
      FROM jobs j JOIN job_processes p ON p.id = j.process_id JOIN orders o ON o.id = j.order_id
      JOIN customers c ON c.id = o.customer_id JOIN order_items i ON i.id = j.order_item_id JOIN products pr ON pr.id = i.product_id
@@ -73,8 +74,12 @@ export function updateJob(jobId: number, input: JobUpdateInput, user: AuthUser) 
       if (input.completed_qty === undefined) qty = j.quantity;
       else throw badRequest(`Mark all ${j.quantity} units done to complete the job`);
     }
-    if (qty === j.quantity) status = 'completed';
+    // A job completes only when every unit is done AND every production step / QC gate is finished.
+    const stepsDone = stepsComplete(jobId);
+    if (input.status === 'completed' && !stepsDone) throw badRequest('Finish every production step and record its QC before completing this job');
+    if (qty === j.quantity && stepsDone) status = 'completed';
     else if (status === 'completed') status = qty > 0 ? 'in_progress' : 'not_started';
+    else if (qty === j.quantity && ['not_started', 'completed'].includes(status)) status = 'in_progress';
     else if (qty > 0 && status === 'not_started') status = 'in_progress';
     if (status === 'delayed' && !(input.delay_reason ?? j.delay_reason)?.trim()) throw badRequest('Please give a reason for the delay');
 
@@ -212,6 +217,7 @@ export function updateJob(jobId: number, input: JobUpdateInput, user: AuthUser) 
 }
 
 const ADMIN_JOB_FIELDS = {
+  qc_remarks: 'QC remarks',
   assigned_to: 'Assigned staff',
   start_date: 'Planned start',
   due_date: 'Due date',
@@ -222,7 +228,7 @@ const ADMIN_JOB_FIELDS = {
 /** Admin edits planning fields; staff may edit notes/specs on their own job. */
 export function editJob(
   jobId: number,
-  patch: Partial<{ assigned_to: number | null; start_date: string | null; due_date: string | null; quantity: number; notes: string | null; specs: Record<string, unknown> }>,
+  patch: Partial<{ assigned_to: number | null; start_date: string | null; due_date: string | null; quantity: number; notes: string | null; qc_remarks: string | null; specs: Record<string, unknown> }>,
   user: AuthUser,
 ) {
   return tx(() => {
@@ -230,7 +236,7 @@ export function editJob(
     const admin = user.role === 'admin';
     if (!admin) {
       if (j.assigned_to !== user.id) throw forbidden('This job sheet is not assigned to you');
-      const allowed = ['notes', 'specs'];
+      const allowed = ['notes', 'specs', 'qc_remarks'];
       if (Object.keys(patch).some((k) => !allowed.includes(k))) throw forbidden('Only notes and process details can be edited by staff');
     }
     if (patch.quantity !== undefined && patch.quantity < j.completed_qty) throw badRequest(`Quantity cannot be below the ${j.completed_qty} units already completed`);
@@ -326,7 +332,11 @@ export function listJobs(f: {
     `SELECT j.id, j.code, j.order_id, o.code AS order_code, c.name AS customer, pr.name AS product, pp.key AS process_key, pp.name AS process_name,
        j.quantity, j.completed_qty, CAST(ROUND(j.completed_qty * 100.0 / j.quantity) AS INTEGER) AS progress, j.status, j.assigned_to, u.name AS assignee,
        j.start_date, j.due_date, o.deadline AS order_deadline, o.priority, o.stage AS order_stage, j.updated_at,
-       (j.status != 'completed' AND j.due_date IS NOT NULL AND j.due_date < ?) AS overdue
+       (j.status != 'completed' AND j.due_date IS NOT NULL AND j.due_date < ?) AS overdue,
+       (SELECT label FROM job_steps s WHERE s.job_id=j.id AND s.status NOT IN ('done','approved','not_required') ORDER BY s.sequence LIMIT 1) AS current_step,
+       (SELECT COUNT(*) FROM job_steps s WHERE s.job_id=j.id AND s.status IN ('done','approved','not_required')) AS steps_done,
+       (SELECT COUNT(*) FROM job_steps s WHERE s.job_id=j.id) AS steps_total,
+       i.photo IS NOT NULL AS has_photo
      FROM jobs j JOIN orders o ON o.id = j.order_id JOIN customers c ON c.id = o.customer_id
      JOIN order_items i ON i.id = j.order_item_id JOIN products pr ON pr.id = i.product_id
      JOIN job_processes pp ON pp.id = j.process_id LEFT JOIN users u ON u.id = j.assigned_to
@@ -387,6 +397,8 @@ export function jobDetail(jobId: number) {
     remaining: j.quantity - j.completed_qty,
     overdue: !!j.due_date && j.status !== 'completed' && j.due_date < today(),
     material,
+    steps: jobSteps(jobId),
+    checklist: jobChecklist(jobId),
     updates,
     activity,
     assignments,

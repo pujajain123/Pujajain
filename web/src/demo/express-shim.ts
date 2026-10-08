@@ -46,7 +46,8 @@ export class RouterImpl {
       }
       const fn = L.fn;
       try {
-        if (fn instanceof RouterImpl) return fn.handle(req, res, next, sub);
+        // Errors skip routers (as in Express) and travel straight to the error handler.
+        if (fn instanceof RouterImpl) return err ? next(err) : fn.handle(req, res, next, sub);
         if (err) return fn.length === 4 ? fn(err, req, res, next) : next(err);
         if (fn.length === 4) return next();
         fn(req, res, next);

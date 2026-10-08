@@ -1,108 +1,195 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Check, Circle, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, ImageIcon } from 'lucide-react';
+import { api } from '../lib/api';
 import { useApi } from '../lib/live';
-import { useMeta } from '../lib/meta';
-import { fmtShort, relDays } from '../lib/format';
-import { Avatar, Card, Empty, ErrorState, Input, Loading, PriorityChip, Progress, RiskChip, Select, StageChip, cx } from '../components/ui';
-import type { OrderSummary, JobBrief } from '../components/domain';
+import { useIsAdmin } from '../lib/auth';
+import { fmtShort } from '../lib/format';
+import { Empty, ErrorState, Field, Input, Loading, Modal, PageHead, Textarea, cx, useAction } from '../components/ui';
 
-/** The Master Production Sheet, rebuilt as a live operational view. */
+type StepCell = { status: string; job_id: number; key: string; kind: 'work' | 'qc' } | null;
+type MatCell = { required: boolean; status: string; note: string | null } | null;
+interface Row {
+  item_id: number; order_id: number; order_code: string; order_date: string; commencement: string | null; client: string; sku: string; product: string; qty: number;
+  deadline: string; stage: string; on_hold: boolean; photo: boolean; materials: Record<string, MatCell>; steps: Record<string, StepCell>;
+  current_status: string; procurement_delay: string; deadline_delay: string; rework: string | null; notes: string | null; completion: number;
+}
+
+const LABEL: Record<string, string> = {
+  not_started: 'Not started', in_progress: 'In progress', done: 'Done', not_required: 'Not required',
+  pending: 'Pending', approved: 'Approved', rejected: 'Rejected', received: 'Received',
+};
+const TONE: Record<string, string> = { done: 'good', approved: 'good', received: 'good', in_progress: 'active', pending: 'warn', rejected: 'bad', not_started: '', not_required: 'none' };
+const MATS: [string, string][] = [['fabric', 'Fabric'], ['rope', 'Rope'], ['foam', 'Foam'], ['tile', 'Tile / stone'], ['metal', 'Metal']];
+const STEPS: [string, string][] = [
+  ['structure', 'Structure'], ['structure_qc', 'Structure QCA'], ['powder', 'Powder coating'], ['powder_qc', 'Powder QCA'],
+  ['weaving', 'Weaving'], ['weaving_qc', 'Weaving QCA'], ['upholstery', 'Upholstery'], ['upholstery_qc', 'Upholstery QCA'], ['tile_work', 'Tile / stone work'],
+];
+
+/** The Master Production Sheet, rebuilt: one row per product line, edited in place, saved for everyone. */
 export function MasterProduction() {
-  const { data, error, reload } = useApi<OrderSummary[]>('/production/master', ['orders', 'jobs']);
-  const meta = useMeta();
-  const nav = useNavigate();
   const [q, setQ] = useState('');
-  const [stage, setStage] = useState('');
-  const [risk, setRisk] = useState('');
-  const [sort, setSort] = useState<'deadline' | 'progress' | 'priority'>('deadline');
+  const [closed, setClosed] = useState(false);
+  const [focus, setFocus] = useState<'all' | 'waiting' | 'qc' | 'late'>('all');
+  const { data, error, reload } = useApi<Row[]>(`/production/tracker${closed ? '?closed=1' : ''}`, ['orders', 'jobs', 'inventory']);
+  const admin = useIsAdmin();
+  const { run } = useAction();
+
   const rows = useMemo(() => {
     let r = data ?? [];
-    if (q) r = r.filter((o) => [o.code, o.customer, o.product, ...o.assignees].some((v) => v.toLowerCase().includes(q.toLowerCase())));
-    if (stage) r = r.filter((o) => o.stage === stage);
-    if (risk) r = r.filter((o) => o.risk === risk);
-    const pr: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
-    return [...r].sort((a, b) => (sort === 'progress' ? a.progress - b.progress : sort === 'priority' ? pr[a.priority] - pr[b.priority] || a.deadline.localeCompare(b.deadline) : a.deadline.localeCompare(b.deadline)));
-  }, [data, q, stage, risk, sort]);
+    if (q) r = r.filter((x) => [x.order_code, x.client, x.sku, x.product, x.current_status].join(' ').toLowerCase().includes(q.toLowerCase()));
+    if (focus === 'waiting') r = r.filter((x) => x.current_status === 'Waiting for Material');
+    if (focus === 'qc') r = r.filter((x) => Object.values(x.steps).some((s) => s?.kind === 'qc' && s.status === 'pending'));
+    if (focus === 'late') r = r.filter((x) => x.deadline_delay === 'Late');
+    return r;
+  }, [data, q, focus]);
+  const orders = new Set(rows.map((r) => r.order_code)).size;
   if (error) return <ErrorState error={error} retry={reload} />;
-  const cell = (j?: JobBrief) =>
-    !j ? (
-      <span className="faint small">n/a</span>
-    ) : (
-      <div style={{ minWidth: 110 }} title={`${j.code} · ${j.assignee ?? 'unassigned'}`}>
-        <div className="row between small">
-          <span className="row gap-4">
-            {j.status === 'completed' ? <Check size={13} color="var(--ok)" strokeWidth={3} /> : j.status === 'not_started' ? <Circle size={10} color="var(--faint)" /> : <Circle size={10} fill={j.status === 'delayed' || j.overdue ? 'var(--bad)' : 'var(--risk)'} color="transparent" />}
-            <span className={cx(j.status === 'not_started' && 'muted')}>{j.completed_qty}/{j.quantity}</span>
-          </span>
-          <span className="tiny muted">{j.assignee?.split(' ')[0]}</span>
-        </div>
-        <div className="mt-8" style={{ marginTop: 4 }}><Progress value={j.progress} tone={j.status === 'delayed' || j.overdue ? 'bad' : undefined} /></div>
-      </div>
-    );
+
+  const [reject, setReject] = useState<NonNullable<StepCell> | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const setStep = (c: NonNullable<StepCell>, status: string, note: string | null = null) => {
+    if (status === 'rejected' && !note) return (setRejectNote(''), setReject(c));
+    return run(() => api.post(`/jobs/${c.job_id}/steps/${c.key}`, { status, note }), status === 'rejected' ? 'Inspection rejected — work step reopened' : 'Saved');
+  };
+  const setMat = (r: Row, kind: string, status: string) => run(() => api.patch(`/production/tracker/${r.item_id}`, { material: kind, status }), 'Saved');
+  const setLine = (r: Row, body: Record<string, string>) => run(() => api.patch(`/production/tracker/${r.item_id}`, body), 'Saved');
+
+  let lastOrder = '';
+  let band = false;
   return (
     <>
-      <div className="page-head">
-        <div>
-          <div className="eyebrow">Production</div><h1>Master production</h1>
-          <div className="sub">Every active order with process-level progress — updates live as staff save job sheets.</div>
-        </div>
-      </div>
+      <PageHead
+        eyebrow="Operations"
+        title="Master production"
+        sub="Order master and production tracker. Update material, stage and QC status in place — every change is saved for the whole team and logged."
+        actions={<Link to="/jobs" className="btn">Open job sheets</Link>}
+      />
       <div className="filters">
-        <div className="search" style={{ maxWidth: 280 }}>
-          <Search size={15} style={{ top: 9 }} />
-          <Input className="search-in" style={{ height: 32, paddingLeft: 32 }} placeholder="Order, client, product, staff" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="search" style={{ maxWidth: 300 }}>
+          <Search size={15} style={{ top: 11 }} />
+          <Input className="search-in" style={{ height: 36, paddingLeft: 34 }} placeholder="Search order, client or SKU…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <Select value={stage} onChange={(e) => setStage(e.target.value)} aria-label="Stage">
-          <option value="">All stages</option>
-          {meta.stages.filter((s) => s.key !== 'completed').map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-        </Select>
-        <Select value={risk} onChange={(e) => setRisk(e.target.value)} aria-label="Risk">
-          <option value="">Any risk</option>
-          <option value="overdue">Overdue</option><option value="at_risk">At risk</option><option value="approaching">Approaching</option><option value="safe">Safe</option>
-        </Select>
-        <Select value={sort} onChange={(e) => setSort(e.target.value as any)} aria-label="Sort">
-          <option value="deadline">Sort: deadline</option><option value="priority">Sort: priority</option><option value="progress">Sort: least progress</option>
-        </Select>
+        <div className="seg">
+          {([['all', 'All lines'], ['waiting', 'Waiting for material'], ['qc', 'QC pending'], ['late', 'Late']] as const).map(([k, l]) => (
+            <button key={k} className={cx(focus === k && 'on')} onClick={() => setFocus(k)}>{l}</button>
+          ))}
+        </div>
+        <label className="check small"><input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} /> Include completed orders</label>
+        <span className="result-count"><b style={{ color: 'var(--ink)' }}>{rows.length}</b> product lines · <b style={{ color: 'var(--ink)' }}>{orders}</b> orders</span>
       </div>
       {!data ? (
-        <Loading rows={8} h={44} />
+        <Loading rows={8} h={40} />
+      ) : rows.length === 0 ? (
+        <div className="card"><Empty title="No product lines match" /></div>
       ) : (
-        <Card pad={false}>
-          {rows.length === 0 ? <Empty title="No active orders match" /> : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Order</th><th>Client</th><th>Product</th><th className="num">Qty</th><th>Order date</th><th>Sky date</th><th>Deadline</th><th>Stage</th>
-                    {meta.processes.map((p) => <th key={p.id}>{p.name}</th>)}
-                    <th style={{ minWidth: 120 }}>Overall</th><th>Staff</th><th>Priority</th><th>Status</th>
+        <div className="card tracker-wrap">
+          <table className="table tracker">
+            <thead>
+              <tr>
+                <th className="sticky-col c1">Order no.</th>
+                <th className="sticky-col c2">SKU / product</th>
+                <th>Client</th><th className="num">Qty</th><th>Order date</th><th>Commencement</th><th>Deadline</th>
+                {MATS.map(([, l]) => <th key={l} className="grp-mat">{l}</th>)}
+                {STEPS.map(([k, l]) => <th key={k} className={k.endsWith('_qc') ? 'grp-qc' : 'grp-step'}>{l}</th>)}
+                <th>Current status</th><th>Procurement</th><th>Deadline</th><th>Rework</th><th style={{ minWidth: 200 }}>Notes</th><th style={{ minWidth: 120 }}>Completion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const first = r.order_code !== lastOrder;
+                if (first) band = !band;
+                lastOrder = r.order_code;
+                return (
+                  <tr key={r.item_id} className={cx(band && 'band', first && 'first')}>
+                    <td className="sticky-col c1">{first ? <Link to={`/orders/${r.order_id}`} className="strong link-plain">{r.order_code}</Link> : <span className="faint">〃</span>}</td>
+                    <td className="sticky-col c2">
+                      <div className="strong nowrap">{r.sku}{r.photo && <ImageIcon size={12} style={{ marginLeft: 6, color: 'var(--muted)' }} />}</div>
+                      <div className="cell-sub nowrap">{r.product}</div>
+                    </td>
+                    <td className="nowrap">{first ? r.client : ''}</td>
+                    <td className="num">{r.qty}</td>
+                    <td className="nowrap small">{first ? fmtShort(r.order_date) : ''}</td>
+                    <td className="nowrap small">{first ? fmtShort(r.commencement) : ''}</td>
+                    <td className="nowrap small" style={r.deadline_delay === 'Late' ? { color: 'var(--bad)' } : undefined}>{first ? fmtShort(r.deadline) : ''}</td>
+                    {MATS.map(([k]) => {
+                      const m = r.materials[k];
+                      if (!m || !m.required) return <td key={k}><span className="faint small" title={m?.note ?? 'Not required'}>{m?.note ? m.note : '—'}</span></td>;
+                      return (
+                        <td key={k}>
+                          <PillSelect value={m.status} options={['pending', 'received', 'not_required']} disabled={!admin} onChange={(v) => setMat(r, k, v)} label={`${k} for ${r.sku}`} />
+                        </td>
+                      );
+                    })}
+                    {STEPS.map(([k]) => {
+                      const c = r.steps[k];
+                      if (!c) return <td key={k}><span className="faint small">—</span></td>;
+                      const opts = c.kind === 'qc' ? ['pending', 'approved', 'rejected'] : ['not_started', 'in_progress', 'done'];
+                      if (admin) opts.push('not_required');
+                      return (
+                        <td key={k}>
+                          <PillSelect value={c.status} options={opts} onChange={(v) => setStep(c, v)} label={`${k} for ${r.sku}`} />
+                        </td>
+                      );
+                    })}
+                    <td><span className={cx('pill', r.current_status === 'Waiting for Material' ? 'warn' : r.current_status === 'Quality Check' ? 'active' : r.current_status.startsWith('Ready') || r.current_status === 'Completed' ? 'good' : 'active')}>{r.current_status}</span></td>
+                    <td><span className={cx('pill', r.procurement_delay === 'On Track' ? 'good' : 'warn')}>{r.procurement_delay}</span></td>
+                    <td><span className={cx('pill', r.deadline_delay === 'On Track' ? 'good' : 'bad')}>{r.deadline_delay}</span></td>
+                    <td>
+                      <PillSelect value={r.rework ?? ''} options={['', 'required', 'resolved']} labels={{ '': 'None', required: 'Required', resolved: 'Resolved' }} tones={{ '': 'none', required: 'bad', resolved: 'good' }} onChange={(v) => setLine(r, { rework: v })} label={`rework for ${r.sku}`} />
+                    </td>
+                    <td><NoteCell value={r.notes ?? ''} onSave={(v) => setLine(r, { notes: v })} /></td>
+                    <td>
+                      <div className="row"><div className="progress grow"><span style={{ width: `${r.completion}%` }} /></div><span className="small strong">{r.completion}%</span></div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((o) => (
-                    <tr key={o.id} className="click" onClick={() => nav(`/orders/${o.id}`)}>
-                      <td className="mono strong nowrap">{o.code}</td>
-                      <td className="strong nowrap">{o.customer}</td>
-                      <td className="small">{o.product}</td>
-                      <td className="num">{o.quantity}</td>
-                      <td className="nowrap small">{fmtShort(o.order_date)}</td>
-                      <td className="nowrap small">{fmtShort(o.sky_date)}</td>
-                      <td className="nowrap"><span className="strong" style={o.risk === 'overdue' ? { color: 'var(--bad)' } : undefined}>{fmtShort(o.deadline)}</span><div className="cell-sub">{o.risk === 'done' ? 'Dispatched' : relDays(o.deadline, meta.today)}</div></td>
-                      <td><StageChip stage={o.stage} onHold={o.on_hold} /></td>
-                      {meta.processes.map((p) => <td key={p.id}>{cell(o.jobs.find((j) => j.process_key === p.key))}</td>)}
-                      <td><div className="row"><div className="grow"><Progress value={o.progress} tone={o.risk === 'overdue' ? 'bad' : undefined} /></div><span className="strong small">{o.progress}%</span></div></td>
-                      <td><div className="row gap-4">{o.assignees.map((a) => <Avatar key={a} name={a} sm light />)}</div></td>
-                      <td><PriorityChip p={o.priority} /></td>
-                      <td><RiskChip risk={o.risk} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
+      {reject && (
+        <Modal
+          title="Reject inspection"
+          sub="The work step before it goes back to In progress so it can be reworked."
+          onClose={() => setReject(null)}
+          footer={<><button className="btn" onClick={() => setReject(null)}>Cancel</button><button className="btn danger solid" disabled={!rejectNote.trim()} onClick={() => { const c = reject; setReject(null); setStep(c, 'rejected', rejectNote.trim()); }}>Reject</button></>}
+        >
+          <Field label="What failed?"><Textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="e.g. weld gap on rear leg, uneven powder coat" autoFocus /></Field>
+        </Modal>
+      )}
+      <div className="alert info mt-16 small">
+        Status cells save straight away and are shared with the whole team. A work step can only start after the inspection before it is approved — the tracker tells you if a change is out of order. Current status, delays and completion are calculated automatically.
+      </div>
     </>
+  );
+}
+
+function PillSelect({ value, options, onChange, disabled, label, labels = LABEL, tones = TONE }: { value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean; label: string; labels?: Record<string, string>; tones?: Record<string, string> }) {
+  const opts = options.includes(value) ? options : [value, ...options];
+  return (
+    <label className={cx('pill pill-select', tones[value])}>
+      {labels[value] ?? value}
+      {!disabled && <span aria-hidden className="caret">⌄</span>}
+      <select aria-label={label} value={value} disabled={disabled} onChange={(e) => e.target.value !== value && onChange(e.target.value)}>
+        {opts.map((o) => <option key={o} value={o}>{labels[o] ?? o}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function NoteCell({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value);
+  return (
+    <input
+      className="cell-input"
+      value={v}
+      placeholder="Add note"
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => v !== value && onSave(v)}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      aria-label="Notes"
+    />
   );
 }

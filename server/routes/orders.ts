@@ -24,7 +24,10 @@ import {
   upsertRequirement,
   requirementSchema,
   addOrderNote,
+  updateItem,
+  itemPatchSchema,
 } from '../services/orderOps.ts';
+import { setItemFields, setItemMaterial, trackerRows, MATERIAL_KINDS } from '../services/steps.ts';
 import { allocateForOrder } from '../services/inventory.ts';
 import { logActivity } from '../services/activity.ts';
 import { refreshAlerts } from '../services/notifications.ts';
@@ -246,6 +249,39 @@ r.post(
     return { id: aid };
   }),
 );
+
+r.patch(
+  '/:id/items/:itemId',
+  h((req) => {
+    updateItem(intId(req.params.id), intId(req.params.itemId), parse(itemPatchSchema, req.body), req.user!);
+    changed();
+    return { ok: true };
+  }),
+);
+
+/** Master production tracker: one row per product line. */
+export const trackerList = h((req) => trackerRows({ q: req.query.q as string | undefined, includeClosed: req.query.closed === '1' }));
+
+/** Inline edit of a tracker cell: material status, rework flag or notes (step cells go through /jobs/:id/steps). */
+export const trackerPatch = h((req) => {
+  const b = parse(
+    z.object({
+      material: z.enum(MATERIAL_KINDS).optional(),
+      status: z.enum(['pending', 'received', 'not_required']).optional(),
+      rework: z.enum(['', 'required', 'resolved']).optional(),
+      notes: z.string().max(2000).optional(),
+    }),
+    req.body,
+  );
+  const itemId = intId(req.params.itemId);
+  if (b.material && b.status) {
+    if (req.user!.role !== 'admin') throw forbidden('Only an admin can change material status');
+    setItemMaterial(itemId, b.material, b.status, req.user!);
+  }
+  if (b.rework !== undefined || b.notes !== undefined) setItemFields(itemId, { ...(b.rework !== undefined ? { rework: b.rework || null } : {}), ...(b.notes !== undefined ? { line_notes: b.notes || null } : {}) }, req.user!);
+  changed();
+  return { ok: true };
+});
 
 export const attachmentDownload = h((req, res) => {
   const a = get('SELECT * FROM attachments WHERE id=?', intId(req.params.id));

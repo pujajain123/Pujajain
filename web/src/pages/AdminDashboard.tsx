@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, ArrowUpRight, Clock, ClipboardList, Factory, PackageX, Plus, Truck, Layers } from 'lucide-react';
 import { useApi } from '../lib/live';
 import { useMeta } from '../lib/meta';
+import { useAuth } from '../lib/auth';
 import { fmtShort, num } from '../lib/format';
 import { daysBetween } from '../../../shared/domain';
 import { Chip, Empty, ErrorState, Kpi, Loading, PageHead, Panel, Progress, StageChip } from '../components/ui';
@@ -14,6 +15,7 @@ export function AdminDashboard() {
   const orders = useApi<OrderSummary[]>('/orders?stage=active', ['orders', 'jobs', 'inventory']).data;
   const nav = useNavigate();
   const today = useMeta().today;
+  const { user } = useAuth();
   if (error) return <ErrorState error={error} retry={reload} />;
   if (!data) return <Loading rows={5} h={110} />;
   const k = data.kpis;
@@ -49,7 +51,7 @@ export function AdminDashboard() {
     <>
       <PageHead
         eyebrow={dateLine}
-        title={`Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, Umami`}
+        title={`Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user?.name.split(' ')[0] ?? 'Umami'}`}
         sub="Here’s what’s moving across the studio today."
         actions={<Link to="/orders/new" className="btn accent lg"><Plus size={17} /> New order</Link>}
       />

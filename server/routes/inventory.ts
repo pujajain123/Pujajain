@@ -9,7 +9,39 @@ import { autoAllocateMaterial, ledger, postTxn, stock } from '../services/invent
 import { logActivity, logFieldChanges } from '../services/activity.ts';
 import { refreshAlerts } from '../services/notifications.ts';
 
+import ropeBook from '../data/rope-workbook.json' with { type: 'json' };
+
 const r = Router();
+
+/** The imported rope workbook as it was in Google Sheets, plus the consistency checks found on import. */
+r.get(
+  '/rope-workbook',
+  h(() => {
+    const book = ropeBook as any;
+    const n = (v: string) => Number(v || 0);
+    const master = book.stock_master.filter((x: any) => (x['Rope Type (SKU)'] || x.mm || x.Color || '').trim());
+    const sum = (k: string) => master.reduce((a: number, x: any) => a + n(x[k]), 0);
+    const checks: string[] = [];
+    const mism = master.filter((x: any) => x['Current Balance (m)'] !== '' && Math.abs(n(x['Opening Stock (m)']) + n(x['Total Purchased (m)']) - n(x['Total Outward (m)']) - n(x['Current Balance (m)'])) > 0.01);
+    for (const x of mism) checks.push(`${x['Rope Type (SKU)']} ${x.mm} ${x.Color}: balance ${x['Current Balance (m)']} m but opening + purchased − outward = ${n(x['Opening Stock (m)']) + n(x['Total Purchased (m)']) - n(x['Total Outward (m)'])} m`);
+    const blankBal = master.filter((x: any) => x['Current Balance (m)'] === '' && n(x['Opening Stock (m)']) > 0);
+    for (const x of blankBal) checks.push(`${x['Rope Type (SKU)']} ${x.mm} ${x.Color}: ${x['Opening Stock (m)']} m opening stock but the balance cell is empty`);
+    const noSku = master.filter((x: any) => !(x['Rope Type (SKU)'] || '').trim()).length;
+    if (noSku) checks.push(`${noSku} stock rows have no rope type (SKU) — imported as "Unlabelled"`);
+    const outLog = book.outward_log.reduce((a: number, x: any) => a + n(x['Qty Out (m)']), 0);
+    const inLog = book.purchase_log.reduce((a: number, x: any) => a + n(x['Qty Purchased (m)']), 0);
+    if (Math.abs(outLog - sum('Total Outward (m)')) > 0.01) checks.push(`Outward log totals ${outLog} m but the stock master's total outward is ${sum('Total Outward (m)')} m`);
+    if (Math.abs(inLog - sum('Total Purchased (m)')) > 0.01) checks.push(`Purchase log totals ${inLog} m but the stock master's total purchased is ${sum('Total Purchased (m)')} m`);
+    const undated = [...book.outward_log, ...book.purchase_log].filter((x: any) => !x.Date).length;
+    if (undated) checks.push(`${undated} log entries have no date`);
+    return {
+      totals: { opening: sum('Opening Stock (m)'), purchased: sum('Total Purchased (m)'), outward: sum('Total Outward (m)'), balance: sum('Current Balance (m)'), low: master.filter((x: any) => n(x['Current Balance (m)']) < 100).length, rows: master.length },
+      outward_log: book.outward_log,
+      purchase_log: book.purchase_log,
+      checks,
+    };
+  }),
+);
 const changed = () => {
   broadcast('inventory', 'orders', 'dashboard', 'activity');
   void refreshAlerts();

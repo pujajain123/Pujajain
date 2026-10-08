@@ -29,6 +29,7 @@ const PAGE_NAMES: [RegExp, string][] = [
   [/^\/notifications/, 'Notifications'],
   [/^\/staff/, 'Staff'],
   [/^\/settings/, 'Settings'],
+  [/^\/guide/, 'Operations guide'],
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -99,8 +100,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="help-card" style={{ marginTop: 24 }}>
           <span className="q">?</span>
           <div className="strong">Need a hand?</div>
-          <div className="small muted">{admin ? 'Every order moves through 9 stages. Click a stage in the pipeline to see its orders.' : 'Open a job sheet, enter what you finished today and press Save update. Everything else updates itself.'}</div>
-          <a className="link" href="https://github.com/pujajain123/Pujajain#readme" target="_blank" rel="noreferrer">Open guide <ArrowUpRight size={14} /></a>
+          <div className="small muted">Visit the operations guide for help with your workspace.</div>
+          <NavLink className="link" to="/guide">Open guide <ArrowUpRight size={14} /></NavLink>
         </div>
         <div className="sidebar-foot">
           <Avatar name={user?.name} />

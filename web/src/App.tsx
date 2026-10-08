@@ -21,6 +21,7 @@ import { Staff } from './pages/Staff';
 import { ActivityLog } from './pages/ActivityLog';
 import { Notifications } from './pages/Notifications';
 import { SettingsPage } from './pages/Settings';
+import { Guide } from './pages/Guide';
 
 export function App() {
   return (
@@ -63,6 +64,7 @@ function Shell() {
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/inventory/:id" element={<MaterialDetail />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/guide" element={<Guide />} />
         {admin && (
           <>
             <Route path="/dispatch" element={<Dispatch />} />

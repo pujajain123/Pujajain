@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS job_processes (
   sequence INTEGER NOT NULL,
   material_category TEXT,          -- inventory category this process draws from (rope/fabric), if any
   fields_json TEXT NOT NULL DEFAULT '[]', -- process-specific job sheet field definitions
+  steps_json TEXT NOT NULL DEFAULT '[]',  -- production steps and their QC gates, in order
+  checklist_json TEXT NOT NULL DEFAULT '[]', -- QC checklist printed on the job sheet
   active INTEGER NOT NULL DEFAULT 1
 );
 
@@ -104,6 +106,7 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_id INTEGER NOT NULL REFERENCES customers(id),
   po_number TEXT,                            -- client reference / PO
   order_date TEXT NOT NULL,
+  commencement_date TEXT,                    -- production start (Master Production Sheet: COMMENCEMENT)
   sky_date TEXT,                             -- internal target date ahead of the client deadline
   deadline TEXT NOT NULL,
   priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low','normal','high','urgent')),
@@ -122,6 +125,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_stage ON orders(stage);
 CREATE INDEX IF NOT EXISTS idx_orders_deadline ON orders(deadline);
 
+-- One row per product line (SKU) on an order — the Order Detailed Sheet.
 CREATE TABLE IF NOT EXISTS order_items (
   id INTEGER PRIMARY KEY,
   order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -130,7 +134,37 @@ CREATE TABLE IF NOT EXISTS order_items (
   dimensions TEXT,
   finish TEXT,
   color TEXT,
-  specifications TEXT
+  specifications TEXT,
+  frame_material TEXT,      -- Aluminium / CR / iron
+  powder_color TEXT,
+  dori_color TEXT,          -- rope colour
+  rope_code TEXT,           -- rope size / code
+  rope_required REAL,       -- metres
+  fabric_code TEXT,
+  fabric_company TEXT,
+  fabric_qty REAL,          -- metres
+  seat_height TEXT,
+  seat_bifurcation TEXT,
+  back_cushion TEXT,
+  extra_cushion TEXT,
+  table_top TEXT,           -- table top / stone
+  buffer_type TEXT,
+  photo TEXT,               -- reference photo (data URI, downscaled in the browser)
+  rework TEXT,              -- NULL | required | resolved  (tracker "Rework alert")
+  line_notes TEXT
+);
+
+-- Material readiness per product line (Master Production Sheet: <material> REQUIRED / STATUS).
+CREATE TABLE IF NOT EXISTS item_materials (
+  id INTEGER PRIMARY KEY,
+  order_item_id INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('metal','rope','fabric','foam','tile')),
+  required INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','received','not_required')),
+  note TEXT,
+  updated_by INTEGER REFERENCES users(id),
+  updated_at TEXT,
+  UNIQUE (order_item_id, kind)
 );
 CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
 
@@ -175,6 +209,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   delay_reason TEXT,
   specs_json TEXT NOT NULL DEFAULT '{}',      -- process-specific job sheet fields
   notes TEXT,
+  qc_remarks TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   CHECK (completed_qty >= 0 AND completed_qty <= quantity),
@@ -190,6 +225,34 @@ CREATE TABLE IF NOT EXISTS staff_assignments (
   assigned_by INTEGER REFERENCES users(id),
   assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   unassigned_at TEXT
+);
+
+-- Production steps inside a job sheet. Work steps are followed by QC gates:
+-- a later work step cannot start until the QC before it is approved.
+CREATE TABLE IF NOT EXISTS job_steps (
+  id INTEGER PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('work','qc')),
+  sequence INTEGER NOT NULL,
+  status TEXT NOT NULL,       -- work: not_started|in_progress|done|not_required · qc: pending|approved|rejected|not_required
+  note TEXT,
+  updated_by INTEGER REFERENCES users(id),
+  updated_at TEXT,
+  UNIQUE (job_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS job_checklist (
+  id INTEGER PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  done_by INTEGER REFERENCES users(id),
+  done_at TEXT,
+  UNIQUE (job_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS job_updates (

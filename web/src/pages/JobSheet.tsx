@@ -10,6 +10,7 @@ import { fmtDate, fmtDateTime, num, relDays } from '../lib/format';
 import { Alert, Avatar, Card, Chip, ErrorState, Field, Input, JobStatusChip, Loading, PriorityChip, Progress, Select, StageChip, Textarea, cx, useAction } from '../components/ui';
 import { ActivityFeed } from '../components/domain';
 import { SpecFields } from './NewOrder';
+import { ProductLineCard, StepsPanel } from '../components/production';
 
 export function JobSheet() {
   const id = Number(useParams().id);
@@ -85,6 +86,18 @@ export function JobSheet() {
               </dl>
             </Card>
           </div>
+
+          <Card title={<div><h2>Production steps</h2><div className="sub">Complete each step, then record its QC before continuing.</div></div>}>
+            <StepsPanel jobId={j.id} steps={j.steps} canEdit={canUpdate} />
+          </Card>
+
+          {j.checklist.length > 0 && <ChecklistCard job={j} canEdit={canUpdate} />}
+
+          <Card title={<div><h2>Product line</h2><div className="sub">From the order intake — the same details the whole team sees.</div></div>}>
+            <div style={{ marginTop: -12 }}>
+              <ProductLineCard orderId={j.order_id} item={{ ...j, id: j.order_item_id, sku: j.product_sku }} canPhoto={admin || mine} compact />
+            </div>
+          </Card>
 
           {j.material ? (
             <Card title="Material">
@@ -283,11 +296,13 @@ function ProcessDetails({ job, canEdit, fields }: { job: any; canEdit: boolean; 
           <Field label="Job notes" className="mt-12"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         </>
       ) : (
-        sections.map((sec) => (
+        fields.every((f) => job.specs[f.key] == null || job.specs[f.key] === '') ? (
+          <div className="small muted">No extra {job.process_name.toLowerCase()} details recorded.{canEdit ? ' Use Edit to add them.' : ''}</div>
+        ) : sections.filter((sec) => fields.some((f) => (f.section ?? 'Details') === sec && job.specs[f.key] != null && job.specs[f.key] !== '')).map((sec) => (
           <div key={sec} className="mt-12">
             <div className="upper" style={{ marginBottom: 6 }}>{sec}</div>
             <dl className="kv">
-              {fields.filter((f) => (f.section ?? 'Details') === sec).map((f) => (
+              {fields.filter((f) => (f.section ?? 'Details') === sec && job.specs[f.key] != null && job.specs[f.key] !== '').map((f) => (
                 <FragmentRow key={f.key} label={f.label} value={job.specs[f.key] != null && job.specs[f.key] !== '' ? `${job.specs[f.key]}${f.unit ? ` ${f.unit}` : ''}` : null} />
               ))}
             </dl>
@@ -323,6 +338,31 @@ function PlanningCard({ job }: { job: any }) {
         <Field label="Planned start"><Input type="date" value={job.start_date ?? ''} onChange={(e) => patch({ start_date: e.target.value || null })} /></Field>
         <Field label="Due date" hint={`Order deadline ${fmtDate(job.order_deadline)}`}><Input type="date" value={job.due_date ?? ''} onChange={(e) => patch({ due_date: e.target.value || null })} /></Field>
       </div>
+    </Card>
+  );
+}
+
+function ChecklistCard({ job, canEdit }: { job: any; canEdit: boolean }) {
+  const { run } = useAction();
+  const [remarks, setRemarks] = useState(job.qc_remarks ?? '');
+  const done = job.checklist.filter((c: any) => c.done).length;
+  return (
+    <Card title={<div className="row between" style={{ width: '100%' }}><div><h2>{job.process_name.replace(' Work', ' work')} QC checklist</h2><div className="sub">Record the checks listed on the job sheet.</div></div><span className="eyebrow">{done}/{job.checklist.length}</span></div>}>
+      <div className="col" style={{ gap: 0, marginTop: -8 }}>
+        {job.checklist.map((c: any) => (
+          <label key={c.key} className="check" style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+            <input type="checkbox" checked={!!c.done} disabled={!canEdit} onChange={(e) => run(() => api.post(`/jobs/${job.id}/checklist/${c.key}`, { done: e.target.checked }))} />
+            <span className="grow">{c.label}</span>
+            <span className="small muted">{c.done ? `${c.done_by_name ?? ''} · ${fmtDate(c.done_at, false)}` : 'Pending'}</span>
+          </label>
+        ))}
+      </div>
+      <Field label="QC remarks" className="mt-16">
+        <Textarea value={remarks} disabled={!canEdit} onChange={(e) => setRemarks(e.target.value)} placeholder="Defects, rework or approval notes" style={{ minHeight: 64 }} />
+      </Field>
+      {canEdit && remarks !== (job.qc_remarks ?? '') && (
+        <button className="btn sm primary mt-8" onClick={() => run(() => api.patch(`/jobs/${job.id}`, { qc_remarks: remarks || null }), 'QC remarks saved')}>Save remarks</button>
+      )}
     </Card>
   );
 }

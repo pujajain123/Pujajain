@@ -4,6 +4,7 @@ import { JOB_STATUSES } from '../../shared/domain.ts';
 import { h, intId, parse } from '../lib.ts';
 import { broadcast } from '../live.ts';
 import { editJob, jobDetail, listJobs, updateJob } from '../services/jobs.ts';
+import { toggleChecklist, updateStep } from '../services/steps.ts';
 import { refreshAlerts } from '../services/notifications.ts';
 
 const r = Router();
@@ -63,6 +64,7 @@ r.patch(
         due_date: date,
         quantity: z.number().int().positive().optional(),
         notes: z.string().max(4000).nullish(),
+        qc_remarks: z.string().max(4000).nullish(),
         specs: z.record(z.any()).optional(),
       }),
       req.body,
@@ -70,6 +72,26 @@ r.patch(
     editJob(intId(req.params.id), body as any, req.user!);
     changed();
     return jobDetail(intId(req.params.id));
+  }),
+);
+
+r.post(
+  '/:id/steps/:key',
+  h((req) => {
+    const b = parse(z.object({ status: z.string(), note: z.string().max(1000).nullish() }), req.body);
+    updateStep(intId(req.params.id), String(req.params.key), b.status, b.note ?? null, req.user!);
+    changed();
+    return jobDetail(intId(req.params.id));
+  }),
+);
+
+r.post(
+  '/:id/checklist/:key',
+  h((req) => {
+    const b = parse(z.object({ done: z.boolean() }), req.body);
+    toggleChecklist(intId(req.params.id), String(req.params.key), b.done, req.user!);
+    changed();
+    return { ok: true };
   }),
 );
 

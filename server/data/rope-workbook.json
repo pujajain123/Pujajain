@@ -1,0 +1,1742 @@
+{
+ "stock_master": [
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": " ",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8mm",
+   "Color": "dark brown Ivory",
+   "Opening Stock (m)": "700",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "700",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8mm",
+   "Color": "dc brown",
+   "Opening Stock (m)": "1435",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "320",
+   "Current Balance (m)": "1115",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "7mm",
+   "Color": "super beige",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "7mm",
+   "Color": "ds grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "6mm",
+   "Color": "dc brown",
+   "Opening Stock (m)": "1244",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "1244",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "15mm",
+   "Color": "DARK SF JUTE",
+   "Opening Stock (m)": "400",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "400",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "9mm/4",
+   "Color": "i grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8mm",
+   "Color": "natural+ds grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "black",
+   "Opening Stock (m)": "215",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "215",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "natural",
+   "Opening Stock (m)": "1858",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "1858",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "Pink fr",
+   "Opening Stock (m)": "600",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "600",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "natural+ds grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "Black plus golden brown",
+   "Opening Stock (m)": "271",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "271",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8mm",
+   "Color": "natural",
+   "Opening Stock (m)": "767",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "767",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8mm",
+   "Color": "True red fr",
+   "Opening Stock (m)": "274",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "274",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8mm",
+   "Color": "Silk grey",
+   "Opening Stock (m)": "130",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "130",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h(f25)",
+   "mm": "8mm",
+   "Color": "G brown ivory",
+   "Opening Stock (m)": "500",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "500",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h(f25)",
+   "mm": "8mm",
+   "Color": "yellow",
+   "Opening Stock (m)": "277",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "277",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "5 star 2h f15",
+   "mm": "7mm",
+   "Color": "natural",
+   "Opening Stock (m)": "510",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "85",
+   "Current Balance (m)": "425",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "5 star 2h f15",
+   "mm": "7mm",
+   "Color": "Braid blue",
+   "Opening Stock (m)": "320",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "320",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather-2h",
+   "mm": "6mm",
+   "Color": "Light olive",
+   "Opening Stock (m)": "294",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "294",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather-2h",
+   "mm": "6mm",
+   "Color": "D orange fr",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "olive fr",
+   "Opening Stock (m)": "400",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "400",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "Light violet",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "True red fr",
+   "Opening Stock (m)": "200",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "200",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "Water green",
+   "Opening Stock (m)": "150",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "150",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "Intra grey",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "90",
+   "Current Balance (m)": "210",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "black",
+   "Opening Stock (m)": "350",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "190",
+   "Current Balance (m)": "160",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "super beige",
+   "Opening Stock (m)": "200",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "90",
+   "Current Balance (m)": "110",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "natural",
+   "Opening Stock (m)": "1800",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "370",
+   "Current Balance (m)": "1430",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "persian blue",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "Braid blue",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr 30-f26c",
+   "mm": "15mm",
+   "Color": "black",
+   "Opening Stock (m)": "673",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "673",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr 30-f26c",
+   "mm": "15mm",
+   "Color": "Light olive",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr 30-f26c",
+   "mm": "15mm",
+   "Color": "Pink fr",
+   "Opening Stock (m)": "267",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "267",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr 30-f26c",
+   "mm": "15mm",
+   "Color": "natural",
+   "Opening Stock (m)": "284",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "284",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "natural",
+   "Opening Stock (m)": "970",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "470",
+   "Current Balance (m)": "500",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "silk grey",
+   "Opening Stock (m)": "835",
+   "Total Purchased (m)": "200",
+   "Total Outward (m)": "1015",
+   "Current Balance (m)": "15",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "golden brown fr",
+   "Opening Stock (m)": "200",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "200",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Pink fr",
+   "Opening Stock (m)": "250",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "250",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "khakhi silver",
+   "Opening Stock (m)": "650",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "650",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "G brown ivory",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "d grey ivory",
+   "Opening Stock (m)": "650",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "650",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "forest green",
+   "Opening Stock (m)": "712",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "20",
+   "Current Balance (m)": "692",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Lt jute silver",
+   "Opening Stock (m)": "1300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "220",
+   "Current Balance (m)": "1080",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "black",
+   "Opening Stock (m)": "400",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "200",
+   "Current Balance (m)": "200",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "mehroom",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "588",
+   "Total Outward (m)": "210",
+   "Current Balance (m)": "378",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "tan fr",
+   "Opening Stock (m)": "1500",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "815",
+   "Current Balance (m)": "685",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "mehroom",
+   "Opening Stock (m)": "700",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "180",
+   "Current Balance (m)": "520",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "dc brown",
+   "Opening Stock (m)": "200",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "200",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "tan fr",
+   "Opening Stock (m)": "400",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "400",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Super beige",
+   "Opening Stock (m)": "1415",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "605",
+   "Current Balance (m)": "810",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "i grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "62h",
+   "mm": "Flat  6",
+   "Color": "Persian blue /L.N blue",
+   "Opening Stock (m)": "288",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "288",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 2h",
+   "mm": "Flat",
+   "Color": "Sf red black",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "TS30",
+   "mm": "20mm",
+   "Color": "Super beige",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Olive fr",
+   "Opening Stock (m)": "400",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "400",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Persian blue",
+   "Opening Stock (m)": "150",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "150",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Golden brown",
+   "Opening Stock (m)": "348",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "348",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Ds grey",
+   "Opening Stock (m)": "1570",
+   "Total Purchased (m)": "577",
+   "Total Outward (m)": "1570",
+   "Current Balance (m)": "577",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "flat 6-2h",
+   "mm": "9mm/4",
+   "Color": "ds grey ivory",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "i grey",
+   "Opening Stock (m)": "1570",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "210",
+   "Current Balance (m)": "1360",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "TS30",
+   "mm": "20mm",
+   "Color": "tan fr ",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "White",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "olive  fr",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h(f25)",
+   "mm": "8mm",
+   "Color": "tan fr",
+   "Opening Stock (m)": "325",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "325",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "ivory silver",
+   "Opening Stock (m)": "84",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "84",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "tan fr",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "TS30",
+   "mm": "20mm",
+   "Color": "i grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Flat 20-2H",
+   "mm": "30mm",
+   "Color": "Firozi FR",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Flat WF-DN52",
+   "mm": "40mm",
+   "Color": "i grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "TS50",
+   "mm": "35mm",
+   "Color": "i grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Flat 8-2h",
+   "mm": "12mm/4",
+   "Color": "Black",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Twill 30",
+   "mm": "20mm",
+   "Color": "Tan + Black",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "flat 6-2h",
+   "mm": "9mm/4",
+   "Color": "Ds Grey",
+   "Opening Stock (m)": "350",
+   "Total Purchased (m)": "500",
+   "Total Outward (m)": "310",
+   "Current Balance (m)": "540",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "TS30",
+   "mm": "20mm",
+   "Color": "Ds Grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Ds Grey",
+   "Opening Stock (m)": "800",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "70",
+   "Current Balance (m)": "730",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "rose gold",
+   "Opening Stock (m)": "130",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "130",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "silk grey",
+   "Opening Stock (m)": "330",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "330",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "rose gold",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h(f25)",
+   "mm": "8mm",
+   "Color": "khakhi silver",
+   "Opening Stock (m)": "460",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "460",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "rose gold",
+   "Opening Stock (m)": "1512",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "485",
+   "Current Balance (m)": "1027",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "Khakhi silver",
+   "Opening Stock (m)": "145",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "145",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "flat 6-2h",
+   "mm": "9mm/4",
+   "Color": "Black",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "persian blue",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "DARK SF JUTE",
+   "Opening Stock (m)": "640",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "640",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Intra grey",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Bleck silver",
+   "Opening Stock (m)": "0",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "0",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "Gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "Persian blue /L.N blue",
+   "Opening Stock (m)": "900",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "900",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Persian blue /L.N blue",
+   "Opening Stock (m)": "222",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "222",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "",
+   "mm": "5mm",
+   "Color": "G brown ivory",
+   "Opening Stock (m)": "100",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "100",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "Flat  6",
+   "Color": "d grey ivory",
+   "Opening Stock (m)": "277",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "277",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "",
+   "mm": "Flat  7",
+   "Color": "d grey ivory",
+   "Opening Stock (m)": "146",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "146",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "Firozi FR",
+   "Opening Stock (m)": "50",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "50",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "rose gold",
+   "Opening Stock (m)": "1512",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "150",
+   "Current Balance (m)": "1362",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "Tan + Black",
+   "Opening Stock (m)": "552",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "552",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "Flat  6",
+   "Color": "black",
+   "Opening Stock (m)": "1050",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "1050",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "",
+   "mm": "Flat  7",
+   "Color": "black",
+   "Opening Stock (m)": "800",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "800",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "",
+   "mm": "Flat  8",
+   "Color": "black",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "",
+   "mm": "Flat  9",
+   "Color": "black",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Sf red black",
+   "Opening Stock (m)": "173",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "173",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FR 20N/2 ",
+   "mm": "32mm",
+   "Color": "i grey",
+   "Opening Stock (m)": "140",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "140",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "Flat  6",
+   "Color": "i grey",
+   "Opening Stock (m)": "970",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "970",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "Silver fr",
+   "Opening Stock (m)": "500",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "400",
+   "Current Balance (m)": "100",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FLAT 15-2H",
+   "mm": "Flat  22",
+   "Color": "super beige",
+   "Opening Stock (m)": "233",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "233",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "10mm",
+   "Color": "DARK SF JUTE",
+   "Opening Stock (m)": "193",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "193",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FLAT 15-2H",
+   "mm": "Flat  22",
+   "Color": "tan fr",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "65",
+   "Current Balance (m)": "235",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "",
+   "mm": "Flat  32",
+   "Color": "tan fr",
+   "Opening Stock (m)": "195",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "195",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "yellow",
+   "Opening Stock (m)": "350",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "180",
+   "Current Balance (m)": "170",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "5 star 2h f15",
+   "mm": "7mm",
+   "Color": "Braid blue",
+   "Opening Stock (m)": "300",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "300",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "hr 30-f26c",
+   "mm": "15mm",
+   "Color": "Olive fr",
+   "Opening Stock (m)": "308",
+   "Total Purchased (m)": "0",
+   "Total Outward (m)": "0",
+   "Current Balance (m)": "308",
+   "": ""
+  },
+  {
+   "Rope Type (SKU)": "FLAT 15-2H",
+   "mm": "22 MM",
+   "Color": "TAN FR",
+   "Opening Stock (m)": "280",
+   "Total Purchased (m)": "",
+   "Total Outward (m)": "",
+   "Current Balance (m)": "",
+   "": ""
+  }
+ ],
+ "outward_log": [
+  {
+   "Date": "31-Aug-2026",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8MM",
+   "Color": "forest green",
+   "Qty Out (m)": "20",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "tan fr",
+   "Qty Out (m)": "270",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAHR JI",
+   "Remarks": ""
+  },
+  {
+   "Date": "01-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "DS GRAY",
+   "Qty Out (m)": "110",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8MM",
+   "Color": "DS GRAY",
+   "Qty Out (m)": "30",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8MM",
+   "Color": "G brown ivory",
+   "Qty Out (m)": "420",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAHR JI",
+   "Remarks": ""
+  },
+  {
+   "Date": "02-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "super beige",
+   "Qty Out (m)": "90",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8MM",
+   "Color": "olive fr",
+   "Qty Out (m)": "400",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE",
+   "Remarks": ""
+  },
+  {
+   "Date": "03-Sep-2026",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "dc brown",
+   "Qty Out (m)": "420",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAHR JI",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "ds grey",
+   "Qty Out (m)": "50",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "dc brown",
+   "Qty Out (m)": "100",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "Silk grey",
+   "Qty Out (m)": "65",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAHR JI",
+   "Remarks": ""
+  },
+  {
+   "Date": "04-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "tan fr",
+   "Qty Out (m)": "275",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAHR JI",
+   "Remarks": ""
+  },
+  {
+   "Date": "05-Sep-2026",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "ds grey",
+   "Qty Out (m)": "20",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "rose gold",
+   "Qty Out (m)": "50",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE",
+   "Remarks": ""
+  },
+  {
+   "Date": "07-Sep-2026",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "dc brown",
+   "Qty Out (m)": "38",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": "TABLE"
+  },
+  {
+   "Date": "08-Sep-2029",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "super beige",
+   "Qty Out (m)": "430",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "08-Sep-2026",
+   "Rope Type (SKU)": "FLAT 15-2H",
+   "mm": "Flat  22",
+   "Color": "tan fr",
+   "Qty Out (m)": "65",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAR JI",
+   "Remarks": "JHULA"
+  },
+  {
+   "Date": "09-Sep-2026",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "dark mehroom",
+   "Qty Out (m)": "110",
+   "Issued To": "",
+   "Used For (Job/Product)": "BASKET SAMPLE",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "natural",
+   "Qty Out (m)": "140",
+   "Issued To": "",
+   "Used For (Job/Product)": "BASKET SAMPLE",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "tan fr",
+   "Qty Out (m)": "70",
+   "Issued To": "",
+   "Used For (Job/Product)": "CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "FLAT 15-2H",
+   "mm": "Flat  22",
+   "Color": "tan fr ",
+   "Qty Out (m)": "10",
+   "Issued To": "",
+   "Used For (Job/Product)": "CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "olive fr",
+   "Qty Out (m)": "120",
+   "Issued To": "",
+   "Used For (Job/Product)": "CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8MM",
+   "Color": "Khakhi silver",
+   "Qty Out (m)": "430",
+   "Issued To": "",
+   "Used For (Job/Product)": "SUNBED",
+   "Remarks": ""
+  },
+  {
+   "Date": "11-Sep-2026",
+   "Rope Type (SKU)": "flat 6-2h",
+   "mm": "9mm/4",
+   "Color": "Ds Grey",
+   "Qty Out (m)": "130",
+   "Issued To": "",
+   "Used For (Job/Product)": "SACHIN JI CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "Ds grey",
+   "Qty Out (m)": "300",
+   "Issued To": "",
+   "Used For (Job/Product)": "SACHIN JI 2 PUFF",
+   "Remarks": ""
+  },
+  {
+   "Date": "14-Sep-2026",
+   "Rope Type (SKU)": "flat 6-2h",
+   "mm": "9mm/4",
+   "Color": "Ds grey",
+   "Qty Out (m)": "180",
+   "Issued To": "",
+   "Used For (Job/Product)": "SACHIN JI 3 SEATER SOFA",
+   "Remarks": ""
+  },
+  {
+   "Date": "16-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "Ds Grey",
+   "Qty Out (m)": "570",
+   "Issued To": "",
+   "Used For (Job/Product)": "UM-151-26(SHREYA JI)",
+   "Remarks": "(6 CHAIR 95*6)"
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Ds Grey",
+   "Qty Out (m)": "100",
+   "Issued To": "",
+   "Used For (Job/Product)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "18-Sep-2026",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8mm",
+   "Color": "i grey",
+   "Qty Out (m)": "210",
+   "Issued To": "",
+   "Used For (Job/Product)": "JHAKAR JI",
+   "Remarks": "JHULA"
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Lt jute silver",
+   "Qty Out (m)": "220",
+   "Issued To": "",
+   "Used For (Job/Product)": "UM-150-26",
+   "Remarks": "LAMP"
+  },
+  {
+   "Date": "19-Jun-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Ds Grey",
+   "Qty Out (m)": "200",
+   "Issued To": "",
+   "Used For (Job/Product)": "UM-164-26",
+   "Remarks": "CHAIR"
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "tan fr",
+   "Qty Out (m)": "200",
+   "Issued To": "",
+   "Used For (Job/Product)": "UM-164-26",
+   "Remarks": "2 CHAIR"
+  },
+  {
+   "Date": "21-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Silk grey",
+   "Qty Out (m)": "390",
+   "Issued To": "",
+   "Used For (Job/Product)": "sample chair",
+   "Remarks": "3 chair"
+  },
+  {
+   "Date": "22-Sep-2026",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "natural",
+   "Qty Out (m)": "190",
+   "Issued To": "",
+   "Used For (Job/Product)": "LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "black",
+   "Qty Out (m)": "190",
+   "Issued To": "",
+   "Used For (Job/Product)": "LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "23/9/26",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "natural",
+   "Qty Out (m)": "40",
+   "Issued To": "",
+   "Used For (Job/Product)": "LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "Super beige",
+   "Qty Out (m)": "40",
+   "Issued To": "",
+   "Used For (Job/Product)": "LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "28/9/26",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "rose gold",
+   "Qty Out (m)": "120",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE SOFA CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Ds Grey",
+   "Qty Out (m)": "400",
+   "Issued To": "",
+   "Used For (Job/Product)": "4 SAMPLE CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "natural",
+   "Qty Out (m)": "320",
+   "Issued To": "",
+   "Used For (Job/Product)": "4 SAMPLE CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "rose gold",
+   "Qty Out (m)": "120",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE SOFA CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "29-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "rose gold",
+   "Qty Out (m)": "195",
+   "Issued To": "",
+   "Used For (Job/Product)": "sample table",
+   "Remarks": ""
+  },
+  {
+   "Date": "30-Sep-2026",
+   "Rope Type (SKU)": "6 star 2h (f25)",
+   "mm": "8MM",
+   "Color": "Silver fr",
+   "Qty Out (m)": "400",
+   "Issued To": "",
+   "Used For (Job/Product)": "UM-152-26",
+   "Remarks": "2 CHAIR 115X2 170 3S SOFA"
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "hr-60 (f50)",
+   "mm": "8MM",
+   "Color": "dc brown",
+   "Qty Out (m)": "320",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE 2S SOFA X2",
+   "Remarks": ""
+  },
+  {
+   "Date": "05-Oct-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "mehroom",
+   "Qty Out (m)": "210",
+   "Issued To": "",
+   "Used For (Job/Product)": "ROCKING CHAIR",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6MM",
+   "Color": "Black",
+   "Qty Out (m)": "200",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "5 star 2h f15",
+   "mm": "7mm",
+   "Color": "natural",
+   "Qty Out (m)": "85",
+   "Issued To": "",
+   "Used For (Job/Product)": " SAMPLE LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "super beige",
+   "Qty Out (m)": "85",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4MM",
+   "Color": "Intra grey",
+   "Qty Out (m)": "90",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "gp6-3n 2550",
+   "mm": "4mm",
+   "Color": "natural",
+   "Qty Out (m)": "40",
+   "Issued To": "",
+   "Used For (Job/Product)": "SAMPLE LAMP",
+   "Remarks": ""
+  },
+  {
+   "Date": "07-Oct-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "yellow",
+   "Qty Out (m)": "130",
+   "Issued To": "",
+   "Used For (Job/Product)": "jasdeep ji chair(um-169-26)",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "D orange fr",
+   "Qty Out (m)": "60",
+   "Issued To": "",
+   "Used For (Job/Product)": "jasdeep ji chair(um-169-26)",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "yellow",
+   "Qty Out (m)": "50",
+   "Issued To": "",
+   "Used For (Job/Product)": "jasdeep ji chair(um-169-26)",
+   "Remarks": "foot rester"
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "D orange fr",
+   "Qty Out (m)": "50",
+   "Issued To": "",
+   "Used For (Job/Product)": "jasdeep ji chair(um-169-26)",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Silk grey",
+   "Qty Out (m)": "625",
+   "Issued To": "",
+   "Used For (Job/Product)": "govind ji chair 4 chair",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "natural",
+   "Qty Out (m)": "150",
+   "Issued To": "",
+   "Used For (Job/Product)": "ROCKING CHAIR",
+   "Remarks": ""
+  }
+ ],
+ "purchase_log": [
+  {
+   "Date": "17-Sep-2026",
+   "Rope Type (SKU)": "flat 6-2h",
+   "mm": "9mm/4",
+   "Color": "ds grey",
+   "Qty Purchased (m)": "500",
+   "Supplier": "",
+   "Invoice/Bill No.": "",
+   "Rate (per m)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "28-Sep-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "mehroom",
+   "Qty Purchased (m)": "588",
+   "Supplier": "",
+   "Invoice/Bill No.": "",
+   "Rate (per m)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Ds grey",
+   "Qty Purchased (m)": "577",
+   "Supplier": "",
+   "Invoice/Bill No.": "",
+   "Rate (per m)": "",
+   "Remarks": ""
+  },
+  {
+   "Date": "07-Oct-2026",
+   "Rope Type (SKU)": "10 no leather 2h",
+   "mm": "6mm",
+   "Color": "Silk grey",
+   "Qty Purchased (m)": "250",
+   "Supplier": "",
+   "Invoice/Bill No.": "",
+   "Rate (per m)": "",
+   "Remarks": "from muhana"
+  }
+ ]
+}

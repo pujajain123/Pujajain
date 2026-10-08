@@ -1,6 +1,8 @@
 # Spreadsheet → database mapping
 
-> **Status: ASSUMED — verify against the real sheets.**
+> **Update (8 Oct 2026): verified against the handoff.** The *Umami dashboard project* handoff included the real Master Production Sheet (35 product lines across 7 orders) and the rope stock workbook (113 SKUs with outward and purchase logs). Section 5 below is the confirmed mapping; it supersedes the assumptions in sections 2.2–2.4 wherever they differ. Both files are seeded from `server/data/`.
+>
+> **Original status: assumed.**
 > The five source spreadsheets (Order Detailed, Master Production, Job Sheet, Rope Stock, Fabric Stock) were not available in the repository or the connected Google Drive when this was built. The mapping below comes from the fields described in the project brief plus standard practice for rope-and-fabric outdoor furniture production. Every column name is a placeholder until it is checked against the real sheets.
 >
 > **To verify:** export each sheet as CSV and compare its headers with the tables below. Then edit `config/import-mapping.json`, which is the only file that needs to change, and run `npm run import -- … --dry-run`. The importer prints exactly what it would create. Any column missing from this document is a gap to add, either as a process-specific Job Sheet field (Settings → Processes, no code change needed) or as a schema column.
@@ -155,3 +157,49 @@ Common fields are columns on `jobs`. Process-specific fields live in `jobs.specs
 5. The import runs in one transaction. `--dry-run` previews it, and any error rolls it back.
 
 After importing orders that are already mid-production, open each order and press **Reserve stock**. The importer records what was consumed, but it does not reserve what is still to be used.
+
+## 5. Confirmed mapping (from the handoff data)
+
+### 5.1 Master Production Sheet → product lines, material readiness, process steps
+
+| Sheet column | Lives in | Notes |
+|---|---|---|
+| ORDER DATE, COMMENCEMENT, ORDER NO., CLIENT, DEADLINE | `orders.order_date`, `orders.commencement_date`, `orders.code`, `customers.name`, `orders.deadline` | One order row per order number, not per line |
+| SKU, PRODUCT, QTY | `order_items` → `products.sku/name`, `order_items.quantity` | One row per product line. SKUs repeat across orders (e.g. SN-CH-023), so products are a catalogue |
+| FABRIC / ROPE / FOAM / TILE-STONE / METAL — REQUIRED + STATUS | `item_materials (kind, required, status)` | Pending / Received / Not required. Editable in Master production |
+| STRUCTURE STATUS, STRUCTURE QCA | Iron Work job → steps `frame`, `frame_qc` | Not started / In progress / Done · Pending / Approved / Rejected |
+| POWDER COATING STATUS, POWDER COATING QCA | Iron Work job → steps `powder`, `powder_qc` | Powder cannot start until the structure QC is approved |
+| WEAVING STATUS, WEAVING QCA | Rope Work job → `weaving`, `weaving_qc` | |
+| UPHOLSTERY STATUS, UPHOLSTERY QCA | Fabric Work job → `upholstery`, `upholstery_qc` | |
+| TILE / STONE STATUS (production) | Tile / Stone Work job → `tile` | |
+| CURRENT STATUS | **Derived** | Waiting for Material, In Painting, In Weaving, In Assembly, Quality Check… from steps and materials |
+| PROCUREMENT DELAY | **Derived** | "Material Order Delay" when a required material is still pending more than 3 days after commencement |
+| DEADLINE DELAY | **Derived** | "Late" when past the deadline and not dispatched |
+| REWORK ALERT, NOTES | `order_items.rework`, `order_items.line_notes` | Editable in place |
+| COMPLETION % | **Derived** | Finished steps ÷ applicable steps for the line |
+
+Order intake product-line fields (from the reference order form) live on `order_items`: dimensions, frame material, powder colour, dori colour, rope size/code, rope required (m), fabric code, fabric company, fabric quantity, seat height, seat bifurcation, back cushion, extra cushion, table top / stone, buffer type and a reference photo.
+
+The iron-work job sheet's 10-point QC checklist (dimensions, material, pipe section, welding, grinding, powder coating, level, surface, hardware, final approval) is stored per job in `job_checklist`, with QC remarks on `jobs.qc_remarks`.
+
+### 5.2 Rope stock workbook → materials + ledger (metres)
+
+| Workbook | Lives in | Notes |
+|---|---|---|
+| Stock master: Rope Type (SKU), mm, Color | `materials` (category rope, unit m) | Identity = SKU + mm + colour, normalised for case and spacing |
+| Opening Stock (m) | `inventory_transactions` type `opening` | |
+| Total Purchased (m) | type `incoming` | |
+| Total Outward (m) | type `consumption` | |
+| Current Balance (m) | **Derived** from the ledger | Never stored |
+| Outward log, Purchase log | Shown read-only in Inventory → Rope inventory | New issues and purchases are recorded as transactions |
+
+### 5.3 Data issues found on import (shown in the app under "things in the workbook don't add up")
+
+- The outward log totals 10,343 m, but the stock master's total outward is 8,720 m.
+- The purchase log totals 1,915 m, but the stock master's total purchased is 1,865 m.
+- 10 no leather 2h · 6mm · silk grey: the balance is 15 m, but opening + purchased − outward = 20 m.
+- FLAT 15-2H · 22 MM · TAN FR: 280 m opening stock, but the balance cell is empty.
+- 6 stock rows have stock but no rope type (SKU). They are imported as "Unlabelled".
+- Several log entries have no date, and spellings vary (`8MM`/`8mm`, `DS GRAY`/`ds grey`).
+- Master Production Sheet: 11 lines leave METAL REQUIRED blank while their structure work is in progress. They are imported as "not required (blank in tracker)".
+- Many lines show structure and powder coating in progress while marked "Waiting for Material" and before QC approval. The app now enforces the order: QC first, then the next step.

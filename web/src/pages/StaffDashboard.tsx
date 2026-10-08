@@ -44,28 +44,34 @@ export function StaffDashboard() {
             <Empty title={tab === 'late' ? 'Nothing late — good work' : 'No jobs here'} />
           ) : (
             <div style={{ marginTop: -10 }}>
-              {lists[tab].map((j: any) => <JobRow key={j.id} j={j} />)}
+              {lists[tab].slice(0, 8).map((j: any) => <JobRow key={j.id} j={j} />)}
+              {lists[tab].length > 8 && (
+                <div className="row between" style={{ paddingTop: 14 }}>
+                  <span className="small muted">Showing the 8 most urgent of {lists[tab].length}</span>
+                  <Link to="/my-jobs" className="link">View all my jobs <ArrowRight size={14} /></Link>
+                </div>
+              )}
             </div>
           )}
         </Panel>
 
         <div className="col gap-24" style={{ minWidth: 0 }}>
-          <Panel title="Quality checks" sub="Orders waiting for inspection before dispatch." action={<Chip tone={data.qc.length ? 'warn' : 'ok'} dot>{data.qc.length} pending</Chip>}>
+          <Panel title="Quality checks" sub="Inspect each production milestone before it moves forward." action={<Chip tone={data.qc.length ? 'warn' : 'ok'} dot>{data.qc.length} pending</Chip>}>
             {data.qc.length === 0 ? (
               <div className="empty small" style={{ padding: '18px 0' }}>No quality checks waiting on your jobs.</div>
             ) : (
               <div style={{ marginTop: -8 }}>
-                {data.qc.map((o: any) => (
-                  <Link key={o.id} to={`/orders/${o.id}`} className="att-item">
-                    <span className="att-icon ok"><ClipboardCheck size={17} /></span>
-                    <span style={{ minWidth: 0 }}><div className="t">{o.code} · {o.customer}</div><div className="s truncate">{o.product} × {o.quantity}</div></span>
-                    <span className="meta">due {fmtShort(o.deadline)}</span>
+                {data.qc.map((q: any) => (
+                  <Link key={q.id} to={`/jobs/${q.job_id}`} className="att-item">
+                    <span className="att-icon warn"><ClipboardCheck size={17} /></span>
+                    <span style={{ minWidth: 0 }}><div className="t">{q.label}</div><div className="s truncate">{q.order_code} · {q.customer} · {q.process_name}</div></span>
+                    <span className="btn sm">Inspect</span>
                   </Link>
                 ))}
               </div>
             )}
             <div className="alert info mt-16 small">
-              <span>Each process is checked when it finishes: frames after welding and powder coat, then rope and fabric work. The final check happens before dispatch.</span>
+              <span>After framework fabrication, inspect the frame. After powder coating, inspect the finish. Rope and fabric work each have their own quality check.</span>
             </div>
           </Panel>
 

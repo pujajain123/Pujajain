@@ -17,7 +17,7 @@ async function boot() {
     transport.request = demo.request;
     // Demo: no sign-in screen — open straight on the admin dashboard.
     const me = await demo.request('GET', '/api/auth/me');
-    if (me.status !== 200) await demo.request('POST', '/api/auth/login', { email: 'admin@umami.studio', password: 'umami123' });
+    if (me.status !== 200) await demo.request('POST', '/api/auth/login', { email: 'shubham@umami.studio', password: 'umami123' });
     liveSource.subscribe = (fn) => {
       const off = demo.onChange(fn);
       return () => void off();

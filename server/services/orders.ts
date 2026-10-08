@@ -57,6 +57,8 @@ export interface OrderSummary {
   delay_reasons: string[];
   shortage: boolean;
   dispatched_qty: number;
+  materials_pending: number;
+  lines: number;
   updated_at: string;
 }
 
@@ -116,6 +118,10 @@ export function orderSummaries(opts: { ids?: number[]; includeCancelled?: boolea
       ...ids,
     ).map((r) => r.order_id),
   );
+  const pendingMats = all<{ order_id: number; n: number }>(
+    `SELECT i.order_id, COUNT(*) AS n FROM item_materials m JOIN order_items i ON i.id=m.order_item_id WHERE i.order_id IN (${ph}) AND m.required=1 AND m.status='pending' GROUP BY i.order_id`,
+    ...ids,
+  );
   const labels = Object.fromEntries(all<{ key: string; label: string }>('SELECT key, label FROM order_stages').map((s) => [s.key, s.label]));
   const t = today();
   const th = riskThresholds();
@@ -156,7 +162,7 @@ export function orderSummaries(opts: { ids?: number[]; includeCancelled?: boolea
       code: o.code,
       customer_id: o.customer_id,
       customer: o.customer,
-      product: its.map((i) => i.name).join(', '),
+      product: its.length > 2 ? `${its.length} products · ${[...new Set(its.map((i) => i.name))].slice(0, 3).join(', ')}` : its.map((i) => i.name).join(', '),
       products: its.map((i) => ({ name: i.name, quantity: i.quantity })),
       quantity: its.reduce((s, i) => s + i.quantity, 0),
       order_date: o.order_date,
@@ -178,6 +184,8 @@ export function orderSummaries(opts: { ids?: number[]; includeCancelled?: boolea
       delay_reasons: delayReasons,
       shortage,
       dispatched_qty: dispatched.find((d) => d.order_id === o.id)?.qty ?? 0,
+      materials_pending: pendingMats.find((m) => m.order_id === o.id)?.n ?? 0,
+      lines: its.length,
       updated_at: o.updated_at,
     };
   });
@@ -233,6 +241,11 @@ export function checkTransition(orderId: number, to: OrderStage): TransitionChec
         }
         const open = checklist('preparing').filter((c) => !c.done);
         if (open.length) warnings.push(`${open.length} preparation checklist item(s) not ticked`);
+        const pendingMat = get<{ n: number }>(
+          `SELECT COUNT(*) AS n FROM item_materials m JOIN order_items i ON i.id=m.order_item_id WHERE i.order_id=? AND m.required=1 AND m.status='pending'`,
+          orderId,
+        )!.n;
+        if (pendingMat) warnings.push(`${pendingMat} material line(s) still pending (metal, rope, fabric, foam or tile)`);
         const short = orderMaterials(orderId).filter((m) => m.shortage > 0);
         for (const m of short) warnings.push(`Material shortage: ${m.material_name} short by ${m.shortage} ${m.unit}`);
         break;

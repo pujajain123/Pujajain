@@ -167,15 +167,14 @@ miscRouter.get(
         `SELECT a.*, o.code AS order_code FROM activity_logs a LEFT JOIN orders o ON o.id=a.order_id WHERE a.actor_id = ? AND a.action != 'login' ORDER BY a.id DESC LIMIT 10`,
         uid,
       ),
-      // Orders waiting for quality check that this person worked on (QC staff without a process see all of them).
+      // QC gates waiting on this person: the work step before them is done, the inspection is not.
       qc: all(
-        `SELECT o.id, o.code, c.name AS customer, (SELECT GROUP_CONCAT(p.name, ', ') FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=o.id) AS product,
-           (SELECT SUM(quantity) FROM order_items WHERE order_id=o.id) AS quantity, o.deadline
-         FROM orders o JOIN customers c ON c.id=o.customer_id
-         WHERE o.stage='quality_check' AND o.cancelled_at IS NULL
-           AND ((SELECT primary_process_id FROM users WHERE id=?) IS NULL OR EXISTS (SELECT 1 FROM jobs j WHERE j.order_id=o.id AND j.assigned_to=?))
+        `SELECT q.id, q.job_id, q.key, q.label, j.code AS job_code, pr.name AS process_name, o.id AS order_id, o.code AS order_code, c.name AS customer, p.name AS product
+         FROM job_steps q JOIN jobs j ON j.id=q.job_id JOIN job_processes pr ON pr.id=j.process_id JOIN orders o ON o.id=j.order_id
+         JOIN customers c ON c.id=o.customer_id JOIN order_items i ON i.id=j.order_item_id JOIN products p ON p.id=i.product_id
+         WHERE q.kind='qc' AND q.status='pending' AND j.assigned_to=? AND o.cancelled_at IS NULL
+           AND EXISTS (SELECT 1 FROM job_steps w WHERE w.job_id=q.job_id AND w.kind='work' AND w.sequence=q.sequence-1 AND w.status='done')
          ORDER BY o.deadline`,
-        uid,
         uid,
       ),
     };

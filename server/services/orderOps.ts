@@ -7,6 +7,7 @@ import { logActivity, logFieldChanges } from './activity.ts';
 import { nextJobCode, nextOrderCode, orderSummary, stageLabel, transition } from './orders.ts';
 import { orderMaterials } from './inventory.ts';
 import { notifyUser } from './notifications.ts';
+import { itemMaterials, seedItemMaterials, seedJobSteps, jobSteps } from './steps.ts';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid date');
 const optDate = date.nullish().or(z.literal('').transform(() => null));
@@ -33,16 +34,36 @@ export const createOrderSchema = z
     notes: optStr,
     delivery_address: optStr,
     sky_date: optDate,
+    commencement_date: optDate,
     deadline: date,
     items: z
       .array(
         z.object({
-          product_id: z.number().int().positive(),
+          product_id: z.number().int().positive().optional(),
+          sku: z.string().trim().max(60).optional(),
+          name: z.string().trim().max(120).optional(),
           quantity: z.number().int().positive('Quantity must be at least 1'),
           dimensions: optStr,
           finish: optStr,
           color: optStr,
           specifications: optStr,
+          frame_material: optStr,
+          powder_color: optStr,
+          dori_color: optStr,
+          rope_code: optStr,
+          rope_required: z.number().nonnegative().nullish(),
+          fabric_code: optStr,
+          fabric_company: optStr,
+          fabric_qty: z.number().nonnegative().nullish(),
+          seat_height: optStr,
+          seat_bifurcation: optStr,
+          back_cushion: optStr,
+          extra_cushion: optStr,
+          table_top: optStr,
+          buffer_type: optStr,
+          photo: z.string().max(3_000_000).nullish(),
+          material_status: z.record(z.object({ required: z.boolean(), status: z.enum(['pending', 'received', 'not_required']).optional(), note: optStr })).optional(),
+          step_status: z.record(z.record(z.string())).optional(),
           processes: z
             .array(
               z.object({
@@ -63,6 +84,9 @@ export const createOrderSchema = z
   })
   .superRefine((v, ctx) => {
     if (!v.customer_id && !v.new_customer) ctx.addIssue({ code: 'custom', path: ['customer_id'], message: 'Select or add a client' });
+    v.items.forEach((it, i) => {
+      if (!it.product_id && !(it.sku && it.name)) ctx.addIssue({ code: 'custom', path: ['items', i, 'sku'], message: 'Enter the SKU and product name' });
+    });
     if (v.deadline < v.order_date) ctx.addIssue({ code: 'custom', path: ['deadline'], message: 'Deadline cannot be before the order date' });
     if (v.sky_date && v.sky_date > v.deadline) ctx.addIssue({ code: 'custom', path: ['sky_date'], message: 'Sky date should be on or before the deadline' });
   });
@@ -89,12 +113,13 @@ export function createOrder(input: CreateOrderInput, user: AuthUser, opts: { cod
 
     const code = opts.code ?? nextOrderCode();
     const orderId = insert(
-      `INSERT INTO orders (code, customer_id, po_number, order_date, sky_date, deadline, priority, source, notes, delivery_address, created_by, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO orders (code, customer_id, po_number, order_date, commencement_date, sky_date, deadline, priority, source, notes, delivery_address, created_by, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       code,
       customerId,
       input.po_number ?? null,
       input.order_date,
+      input.commencement_date ?? null,
       input.sky_date ?? null,
       input.deadline,
       input.priority,
@@ -126,18 +151,51 @@ export function createOrder(input: CreateOrderInput, user: AuthUser, opts: { cod
     });
 
     for (const item of input.items) {
-      const product = get('SELECT * FROM products WHERE id=?', item.product_id);
+      // Product lines carry a free-text SKU; the SKU catalogue grows as orders come in.
+      let productId = item.product_id;
+      if (!productId) {
+        productId = get<{ id: number }>('SELECT id FROM products WHERE lower(sku)=lower(?)', item.sku!)?.id;
+        if (!productId) productId = insert('INSERT INTO products (sku, name, category) VALUES (?,?,?)', item.sku!, item.name!, item.name!.split(' ')[0]);
+      }
+      const product = get('SELECT * FROM products WHERE id=?', productId);
       if (!product) throw badRequest('Product not found');
       const itemId = insert(
-        'INSERT INTO order_items (order_id, product_id, quantity, dimensions, finish, color, specifications) VALUES (?,?,?,?,?,?,?)',
+        `INSERT INTO order_items (order_id, product_id, quantity, dimensions, finish, color, specifications, frame_material, powder_color, dori_color, rope_code,
+           rope_required, fabric_code, fabric_company, fabric_qty, seat_height, seat_bifurcation, back_cushion, extra_cushion, table_top, buffer_type, photo)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         orderId,
-        item.product_id,
+        productId,
         item.quantity,
         item.dimensions ?? product.default_dimensions ?? null,
         item.finish ?? null,
-        item.color ?? null,
+        item.color ?? item.dori_color ?? null,
         item.specifications ?? null,
+        item.frame_material ?? null,
+        item.powder_color ?? null,
+        item.dori_color ?? null,
+        item.rope_code ?? null,
+        item.rope_required ?? null,
+        item.fabric_code ?? null,
+        item.fabric_company ?? null,
+        item.fabric_qty ?? null,
+        item.seat_height ?? null,
+        item.seat_bifurcation ?? null,
+        item.back_cushion ?? null,
+        item.extra_cushion ?? null,
+        item.table_top ?? null,
+        item.buffer_type ?? null,
+        item.photo ?? null,
       );
+      // Material readiness defaults from the processes chosen, unless the caller says otherwise.
+      const procKeys = item.processes.map((p) => get<{ key: string }>('SELECT key FROM job_processes WHERE id=?', p.process_id)?.key);
+      seedItemMaterials(itemId, {
+        metal: { required: procKeys.includes('iron') },
+        rope: { required: procKeys.includes('rope') },
+        fabric: { required: procKeys.includes('fabric') },
+        foam: { required: procKeys.includes('fabric') },
+        tile: { required: procKeys.includes('tile') },
+        ...(item.material_status as any),
+      });
       for (const pr of item.processes) {
         const proc = get('SELECT * FROM job_processes WHERE id=?', pr.process_id);
         if (!proc) throw badRequest('Process not found');
@@ -157,6 +215,7 @@ export function createOrder(input: CreateOrderInput, user: AuthUser, opts: { cod
           nowIso(),
           nowIso(),
         );
+        seedJobSteps(jobId, pr.process_id, item.step_status?.[proc.key] ?? {});
         logActivity({
           actorId: user.id,
           entityType: 'job',
@@ -214,7 +273,9 @@ export function orderDetail(orderId: number) {
      FROM jobs j JOIN job_processes p ON p.id = j.process_id LEFT JOIN users u ON u.id = j.assigned_to
      WHERE j.order_id = ? ORDER BY p.sequence, j.id`,
     orderId,
-  ).map((j) => ({ ...j, specs: JSON.parse(j.specs_json || '{}'), progress: Math.round((j.completed_qty / j.quantity) * 100) }));
+  ).map((j) => ({ ...j, specs: JSON.parse(j.specs_json || '{}'), progress: Math.round((j.completed_qty / j.quantity) * 100), steps: jobSteps(j.id) }));
+  const mats = itemMaterials(items.map((i) => i.id));
+  for (const it of items) (it as any).materials = mats.filter((m) => m.order_item_id === it.id);
   const history = all(
     `SELECT h.*, u.name AS actor FROM order_status_history h LEFT JOIN users u ON u.id = h.changed_by WHERE h.order_id = ? ORDER BY h.id`,
     orderId,
@@ -494,3 +555,48 @@ export function addOrderNote(orderId: number, note: string, user: AuthUser) {
 }
 
 export { today };
+
+export const itemPatchSchema = z.object({
+  quantity: z.number().int().positive().optional(),
+  dimensions: optStr,
+  frame_material: optStr,
+  powder_color: optStr,
+  dori_color: optStr,
+  rope_code: optStr,
+  rope_required: z.number().nonnegative().nullish(),
+  fabric_code: optStr,
+  fabric_company: optStr,
+  fabric_qty: z.number().nonnegative().nullish(),
+  seat_height: optStr,
+  seat_bifurcation: optStr,
+  back_cushion: optStr,
+  extra_cushion: optStr,
+  table_top: optStr,
+  buffer_type: optStr,
+  photo: z.string().max(3_000_000).nullish(),
+});
+const ITEM_FIELDS: Record<string, string> = {
+  quantity: 'Quantity', dimensions: 'Dimensions', frame_material: 'Frame material', powder_color: 'Powder colour', dori_color: 'Dori colour',
+  rope_code: 'Rope size / code', rope_required: 'Rope required', fabric_code: 'Fabric code', fabric_company: 'Fabric company', fabric_qty: 'Fabric quantity',
+  seat_height: 'Seat height', seat_bifurcation: 'Seat bifurcation', back_cushion: 'Back cushion', extra_cushion: 'Extra cushion', table_top: 'Table top / stone', buffer_type: 'Buffer type',
+};
+
+/** Edit a product line's specification or reference photo (staff may add photos only). */
+export function updateItem(orderId: number, itemId: number, patch: z.infer<typeof itemPatchSchema>, user: AuthUser) {
+  const it = get('SELECT i.*, o.code AS order_code, p.sku FROM order_items i JOIN orders o ON o.id=i.order_id JOIN products p ON p.id=i.product_id WHERE i.id=? AND i.order_id=?', itemId, orderId);
+  if (!it) throw notFound('Product line');
+  const keys = Object.keys(patch);
+  if (user.role !== 'admin' && keys.some((k) => k !== 'photo')) throw conflict('Only an admin can change product specifications');
+  if (patch.quantity !== undefined) {
+    const done = get<{ m: number }>('SELECT COALESCE(MAX(completed_qty),0) AS m FROM jobs WHERE order_item_id=?', itemId)!.m;
+    if (patch.quantity < done) throw badRequest(`Quantity cannot be below the ${done} units already produced`);
+  }
+  tx(() => {
+    if (keys.length) run(`UPDATE order_items SET ${keys.map((k) => `${k}=?`).join(', ')} WHERE id=?`, ...keys.map((k) => (patch as any)[k] ?? null), itemId);
+    if (patch.quantity !== undefined) run('UPDATE jobs SET quantity=? WHERE order_item_id=?', patch.quantity, itemId);
+    if ('photo' in patch)
+      logActivity({ actorId: user.id, entityType: 'order', entityId: orderId, orderId, action: 'photo', message: `${it.order_code} · ${it.sku}: product photo ${patch.photo ? 'added' : 'removed'}` });
+    const { photo: _p, ...rest } = patch;
+    logFieldChanges({ actorId: user.id, entityType: 'order', entityId: orderId, orderId, label: `${it.order_code} · ${it.sku}` }, it, rest, ITEM_FIELDS);
+  });
+}

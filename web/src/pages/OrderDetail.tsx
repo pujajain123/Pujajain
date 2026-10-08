@@ -14,6 +14,8 @@ import {
 } from '../components/ui';
 import { ActivityFeed, MaterialBar } from '../components/domain';
 import { DEMO } from '../lib/env';
+import { ProductLineCard } from '../components/production';
+import { useAuth } from '../lib/auth';
 
 export function OrderDetail() {
   const id = Number(useParams().id);
@@ -96,6 +98,8 @@ export function OrderDetail() {
           <StagePanel stage={sel} data={data} />
         </div>
       </div>
+
+      <ProductLines data={data} />
 
       <div className="card mt-24">
         <div style={{ padding: '0 16px' }}>
@@ -905,5 +909,67 @@ function Attachments({ orderId, rows, stage }: { orderId: number; rows: any[]; s
         </div>
       )}
     </div>
+  );
+}
+
+const MAT_ORDER = [['metal', 'Metal'], ['rope', 'Rope'], ['fabric', 'Fabric'], ['foam', 'Foam'], ['tile', 'Tile / stone']] as const;
+
+/** Every SKU on the order with its specification, reference photo, material readiness and production steps. */
+function ProductLines({ data }: { data: any }) {
+  const { user } = useAuth();
+  const admin = user?.role === 'admin';
+  const { run } = useAction();
+  const canPhoto = admin || data.jobs.some((j: any) => j.assigned_to === user?.id);
+  return (
+    <section className="card mt-24">
+      <div className="card-head">
+        <div><h2>Product lines</h2><div className="sub">SKU-specific production details from the order intake, with material readiness and step progress.</div></div>
+        <span className="eyebrow">{data.items.length} product{data.items.length === 1 ? '' : 's'}</span>
+      </div>
+      <div className="card-body" style={{ paddingTop: 4 }}>
+        {data.items.map((it: any, i: number) => {
+          const jobs = data.jobs.filter((j: any) => j.order_item_id === it.id);
+          return (
+            <div key={it.id} style={{ borderBottom: i < data.items.length - 1 ? '1px solid var(--line-2)' : 0, paddingBottom: 8 }}>
+              <ProductLineCard orderId={data.order.id} item={it} index={i} canPhoto={canPhoto} />
+              <div className="grid g2" style={{ gap: 16, marginBottom: 12 }}>
+                <div>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>Material readiness</div>
+                  <div className="row wrap gap-8">
+                    {MAT_ORDER.map(([k, l]) => {
+                      const m = it.materials.find((x: any) => x.kind === k);
+                      if (!m || !m.required) return <span key={k} className="pill none">{l}: not needed</span>;
+                      return admin ? (
+                        <label key={k} className={`pill pill-select ${m.status === 'received' ? 'good' : 'warn'}`}>
+                          {l}: {m.status === 'received' ? 'Received' : 'Pending'} <span className="caret">⌄</span>
+                          <select aria-label={`${l} status`} value={m.status} onChange={(e) => run(() => api.patch(`/production/tracker/${it.id}`, { material: k, status: e.target.value }), `${l} updated`)}>
+                            <option value="pending">Pending</option><option value="received">Received</option><option value="not_required">Not required</option>
+                          </select>
+                        </label>
+                      ) : <span key={k} className={`pill ${m.status === 'received' ? 'good' : 'warn'}`}>{l}: {m.status === 'received' ? 'Received' : 'Pending'}</span>;
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>Production</div>
+                  <div className="col" style={{ gap: 6 }}>
+                    {jobs.map((j: any) => {
+                      const next = j.steps.find((s: any) => !['done', 'approved', 'not_required'].includes(s.status));
+                      return (
+                        <Link key={j.id} to={`/jobs/${j.id}`} className="row between small" style={{ gap: 10 }}>
+                          <span className="strong" style={{ width: 120 }}>{j.process_name}</span>
+                          <span className="grow muted truncate">{next ? `${next.label} · ${next.status.replace('_', ' ')}` : 'All steps done'}</span>
+                          <JobStatusChip status={j.status} />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -7,6 +7,7 @@ import { createOrder } from '../services/orderOps.ts';
 import { recordQualityCheck, recordDispatch } from '../services/orderOps.ts';
 import { checkTransition, transition, orderSummary, setHold } from '../services/orders.ts';
 import { updateJob } from '../services/jobs.ts';
+import { updateStep } from '../services/steps.ts';
 import { postTxn, orderMaterials, stock } from '../services/inventory.ts';
 import { deadlineRisk } from '../../shared/domain.ts';
 
@@ -93,10 +94,18 @@ test('a staff update flows to job, ledger, order progress, lifecycle and audit t
   let s = orderSummary(id);
   assert.equal(s.stage, 'in_production', 'first update auto-starts production');
   assert.equal(s.progress, 50);
+  // All units done is not enough: the iron job completes only after its steps and QC gates.
+  assert.equal(get('SELECT status FROM jobs WHERE id=?', iron.id)!.status, 'in_progress');
+  assert.throws(() => updateStep(iron.id, 'powder', 'in_progress', null, rahul), /must be approved/);
+  for (const [k, st] of [['frame', 'done'], ['frame_qc', 'approved'], ['powder', 'done'], ['powder_qc', 'approved']] as const) updateStep(iron.id, k, st, null, rahul);
+  assert.equal(get('SELECT status FROM jobs WHERE id=?', iron.id)!.status, 'completed');
 
   // Staff can only touch their own job sheets
   assert.throws(() => updateJob(rope.id, { completed_qty: 1 }, other), /not assigned/);
 
+  updateStep(rope.id, 'weaving', 'done', null, amit);
+  assert.throws(() => updateStep(rope.id, 'weaving_qc', 'rejected', null, amit), /Describe what failed/);
+  updateStep(rope.id, 'weaving_qc', 'approved', null, amit);
   updateJob(rope.id, { completed_qty: 10, material_used: 18.5, wastage: 0.5 }, amit);
   s = orderSummary(id);
   assert.equal(s.progress, 100);

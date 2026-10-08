@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { errorHandler } from './lib.ts';
 import { loadUser, requireAuth, requireRole } from './auth.ts';
-import ordersRouter, { attachmentDownload, dispatchBoard, masterProduction } from './routes/orders.ts';
+import ordersRouter, { attachmentDownload, dispatchBoard, masterProduction, trackerList, trackerPatch } from './routes/orders.ts';
 import jobsRouter from './routes/jobs.ts';
 import inventoryRouter from './routes/inventory.ts';
 import { authRouter, miscRouter } from './routes/misc.ts';
@@ -30,6 +30,8 @@ export function createApp() {
   app.use('/api/orders', ordersRouter);
   app.get('/api/attachments/:id', attachmentDownload);
   app.get('/api/production/master', masterProduction);
+  app.get('/api/production/tracker', trackerList);
+  app.patch('/api/production/tracker/:itemId', trackerPatch);
   app.get('/api/dispatch', requireRole('admin'), dispatchBoard);
   app.use('/api/jobs', jobsRouter);
   app.use('/api/inventory', inventoryRouter);

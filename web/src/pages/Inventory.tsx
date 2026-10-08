@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, PackagePlus, Truck } from 'lucide-react';
 import { TXN_LABELS, type TxnType } from '../../../shared/domain';
 import { api } from '../lib/api';
@@ -7,76 +7,54 @@ import { useApi } from '../lib/live';
 import { useIsAdmin } from '../lib/auth';
 import { useMeta } from '../lib/meta';
 import { fmtDate, num } from '../lib/format';
-import { Alert, Card, Chip, Empty, ErrorState, Field, Input, Loading, Modal, Select, Tabs, Textarea, useAction } from '../components/ui';
+import { Alert, Card, Chip, Empty, ErrorState, Field, Input, Loading, Modal, PageHead, Progress, Select, Tabs, Textarea, cx, useAction } from '../components/ui';
 
 export function Inventory() {
-  const [cat, setCat] = useState<'rope' | 'fabric' | 'movements' | 'incoming'>('rope');
   const admin = useIsAdmin();
   const [modal, setModal] = useState<null | 'txn' | 'incoming' | 'material'>(null);
+  const [lower, setLower] = useState<'movements' | 'incoming'>('movements');
   const { data, error, reload } = useApi<any[]>('/inventory', ['inventory']);
   const nav = useNavigate();
   if (error) return <ErrorState error={error} retry={reload} />;
-  const rows = (data ?? []).filter((s) => s.category === cat);
-  const sum = (c: string, k: string) => (data ?? []).filter((s) => s.category === c).reduce((a, s) => a + s[k], 0);
-  const low = (c: string) => (data ?? []).filter((s) => s.category === c && s.low_stock).length;
+  const fabrics = (data ?? []).filter((s) => s.category === 'fabric');
   return (
     <>
-      <div className="page-head">
-        <div>
-          <div className="eyebrow">Operations</div><h1>{admin ? 'Inventory' : 'Materials'}</h1>
-          <div className="sub">Balances are calculated from the stock ledger — opening + incoming ± adjustments − consumption − wastage. Nothing is overwritten.</div>
-        </div>
-        <div className="row">
-          {admin && <button className="btn" onClick={() => setModal('material')}><Plus size={14} /> Material</button>}
-          <button className="btn" onClick={() => setModal('incoming')}><Truck size={14} /> Expected incoming</button>
-          <button className="btn primary" onClick={() => setModal('txn')}><PackagePlus size={14} /> Record stock movement</button>
-        </div>
-      </div>
-      {data && (
-        <div className="grid g2">
-          {(['rope', 'fabric'] as const).map((c) => (
-            <div key={c} className="card card-pad">
-              <div className="row between"><h2>{c === 'rope' ? 'Rope' : 'Fabric'}</h2>{low(c) > 0 && <Chip tone="bad">{low(c)} low stock</Chip>}</div>
-              <div className="grid g4 mt-12" style={{ gap: 8 }}>
-                {[['Current stock', 'on_hand'], ['Reserved', 'reserved'], ['Consumed', 'consumed'], ['Incoming', 'expected_incoming']].map(([l, k]) => (
-                  <div key={k}><div className="stat-label">{l}</div><div className="stat-value">{num(sum(c, k), 0)} <span className="small muted">{c === 'rope' ? 'kg' : 'm'}</span></div></div>
-                ))}
-              </div>
+      <PageHead
+        eyebrow="Operations"
+        title={admin ? 'Inventory' : 'Materials'}
+        sub="Rope inventory from the stock workbook, alongside the workspace material ledger. Balances are calculated from recorded movements — nothing is overwritten."
+        actions={
+          <>
+            {admin && <button className="btn" onClick={() => setModal('material')}><Plus size={14} /> Material</button>}
+            <button className="btn" onClick={() => setModal('incoming')}><Truck size={14} /> Expected incoming</button>
+            <button className="btn accent" onClick={() => setModal('txn')}><PackagePlus size={15} /> Record transaction</button>
+          </>
+        }
+      />
+      {!data ? <Loading rows={4} h={80} /> : <RopeWorkbook stock={data.filter((s) => s.category === 'rope')} onOpen={(id) => nav(`/inventory/${id}`)} />}
+
+      <div className="section-title"><span className="eyebrow">Other workspace materials</span></div>
+      <div className="grid g3">
+        {fabrics.map((s) => (
+          <Link key={s.material_id} to={`/inventory/${s.material_id}`} className="card card-pad" style={{ display: 'block' }}>
+            <div className="row between top">
+              <div><h3>{s.name}</h3><div className="small muted">Fabric · measured in {s.unit}</div></div>
+              {s.low_stock ? <Chip tone="bad" dot>Low stock</Chip> : <Chip tone="ok" dot>In stock</Chip>}
             </div>
-          ))}
-        </div>
-      )}
-      <div className="mt-16">
-        <Tabs value={cat} onChange={setCat} items={[{ key: 'rope', label: 'Rope stock', count: (data ?? []).filter((s) => s.category === 'rope').length }, { key: 'fabric', label: 'Fabric stock', count: (data ?? []).filter((s) => s.category === 'fabric').length }, { key: 'movements', label: 'Stock movements' }, { key: 'incoming', label: 'Incoming' }]} />
-      </div>
-      <div className="mt-16">
-        {cat === 'movements' ? <Movements /> : cat === 'incoming' ? <Incoming /> : !data ? <Loading rows={5} h={44} /> : (
-          <Card pad={false}>
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr><th>Material</th><th>Colour</th><th className="num">Current stock</th><th className="num">Reserved</th><th className="num">Available</th><th className="num">Consumed</th><th className="num">Wastage</th><th className="num">Incoming</th><th className="num">Reorder at</th><th>Open orders</th></tr>
-                </thead>
-                <tbody>
-                  {rows.map((s) => (
-                    <tr key={s.material_id} className="click" onClick={() => nav(`/inventory/${s.material_id}`)}>
-                      <td><div className="strong">{s.name}</div><div className="cell-sub mono">{s.code} · {s.location}</div></td>
-                      <td>{s.color}</td>
-                      <td className="num strong">{num(s.on_hand)} {s.unit}</td>
-                      <td className="num">{num(s.reserved)}</td>
-                      <td className="num">{s.low_stock ? <Chip tone="bad">{num(s.available)} {s.unit}</Chip> : <span className="strong" style={{ color: 'var(--ok)' }}>{num(s.available)} {s.unit}</span>}</td>
-                      <td className="num muted">{num(s.consumed)}</td>
-                      <td className="num muted">{num(s.wastage)}</td>
-                      <td className="num">{s.expected_incoming ? <Chip tone="info">+{num(s.expected_incoming)}</Chip> : <span className="faint">—</span>}</td>
-                      <td className="num muted">{num(s.reorder_level)}</td>
-                      <td>{s.open_orders || <span className="faint">0</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="row mt-16" style={{ alignItems: 'baseline', gap: 6 }}><span className="big-number">{num(s.available, 0)}</span><span className="small muted">{s.unit} available</span></div>
+            <div className="mt-8"><Progress value={s.on_hand ? (s.available / s.on_hand) * 100 : 0} tone={s.low_stock ? 'bad' : undefined} /></div>
+            <div className="grid g4 mt-16 small" style={{ gap: 8 }}>
+              {[['On hand', s.on_hand], ['Reserved', s.reserved], ['Consumed', s.consumed], ['Reorder at', s.reorder_level]].map(([l, v]) => (
+                <div key={l as string}><div className="muted tiny upper">{l}</div><div className="strong">{num(v as number, 0)} {s.unit}</div></div>
+              ))}
             </div>
-          </Card>
-        )}
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-24">
+        <Tabs value={lower} onChange={setLower} items={[{ key: 'movements', label: 'Stock movements' }, { key: 'incoming', label: 'Expected incoming' }]} />
+        <div className="mt-16">{lower === 'movements' ? <Movements /> : <Incoming />}</div>
       </div>
       {modal === 'txn' && <StockTxnModal onClose={() => setModal(null)} />}
       {modal === 'incoming' && <IncomingModal onClose={() => setModal(null)} />}
@@ -85,12 +63,113 @@ export function Inventory() {
   );
 }
 
+/** The imported rope workbook: stock master (live from the ledger) plus the original outward and purchase logs. */
+function RopeWorkbook({ stock, onOpen }: { stock: any[]; onOpen: (id: number) => void }) {
+  const book = useApi<any>('/inventory/rope-workbook').data;
+  const [tab, setTab] = useState<'master' | 'outward' | 'purchase'>('master');
+  const [q, setQ] = useState('');
+  const [onlyStock, setOnlyStock] = useState(true);
+  const sum = (k: string) => stock.reduce((a, s) => a + s[k], 0);
+  const low = stock.filter((s) => s.on_hand < 100).length;
+  const match = (...v: any[]) => !q || v.join(' ').toLowerCase().includes(q.toLowerCase());
+  const master = stock.filter((s) => (!onlyStock || s.on_hand > 0 || s.incoming > 0) && match(s.name, s.color));
+  const kpi = (l: string, v: string, tone?: string) => (
+    <div className="card card-pad" style={{ boxShadow: 'none', background: tone ? 'var(--warn-soft)' : 'var(--surface-2)', borderColor: tone ? 'var(--warn-line)' : undefined, padding: '14px 16px' }}>
+      <div className="upper tiny">{l}</div>
+      <div className="stat-value" style={{ fontFamily: 'var(--display)', fontSize: 22, color: tone ? 'var(--warn-text)' : undefined }}>{v}</div>
+    </div>
+  );
+  return (
+    <section className="card">
+      <div className="card-head">
+        <div>
+          <div className="eyebrow">Imported rope workbook</div>
+          <h2 style={{ marginTop: 4 }}>Rope inventory</h2>
+          <div className="sub">Stock by rope type, thickness and colour, with purchase and issue history. Quantities are in metres.</div>
+        </div>
+      </div>
+      <div className="card-body">
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+          {kpi('On hand', `${num(sum('on_hand'), 0)} m`)}
+          {kpi('Opening stock', `${num(sum('opening'), 0)} m`)}
+          {kpi('Purchased', `${num(sum('incoming'), 0)} m`)}
+          {kpi('Issued out', `${num(sum('consumed'), 0)} m`)}
+          {kpi('Low / zero (<100 m)', `${low} SKUs`, 'warn')}
+        </div>
+        {book?.checks?.length > 0 && (
+          <details className="alert warn small mt-16" style={{ display: 'block' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>{book.checks.length} things in the workbook don’t add up — review before relying on these figures</summary>
+            <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>{book.checks.map((c: string) => <li key={c}>{c}</li>)}</ul>
+          </details>
+        )}
+        <div className="row wrap mt-16" style={{ justifyContent: 'space-between' }}>
+          <div className="row gap-8 wrap">
+            {([['master', 'Stock master', stock.length], ['outward', 'Outward log', book?.outward_log.length], ['purchase', 'Purchase log', book?.purchase_log.length]] as const).map(([k, l, n]) => (
+              <button key={k} className={cx('btn sm', tab === k && 'primary')} onClick={() => setTab(k)}>{l} <span style={{ opacity: 0.7 }}>{n ?? ''}</span></button>
+            ))}
+            {tab === 'master' && <label className="check small" style={{ marginLeft: 8 }}><input type="checkbox" checked={onlyStock} onChange={(e) => setOnlyStock(e.target.checked)} /> Hide never-stocked SKUs</label>}
+          </div>
+          <Input style={{ maxWidth: 300, height: 36 }} placeholder="Search type, size, colour or job" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+      </div>
+      <div className="table-wrap" style={{ maxHeight: 520, overflowY: 'auto' }}>
+        {tab === 'master' ? (
+          <table className="table dense">
+            <thead><tr><th>Rope type (SKU)</th><th>mm</th><th>Colour</th><th className="num">Opening (m)</th><th className="num">Purchased (m)</th><th className="num">Outward (m)</th><th className="num">Current balance (m)</th><th className="num">Reserved</th><th className="num">Available</th></tr></thead>
+            <tbody>
+              {master.map((s) => {
+                const [type, mm] = (s.variant ?? s.name).split(' · ');
+                return (
+                  <tr key={s.material_id} className="click" onClick={() => onOpen(s.material_id)}>
+                    <td className="strong">{type}</td><td>{mm}</td><td>{s.color ?? '—'}</td>
+                    <td className="num">{num(s.opening, 0)}</td><td className="num">{num(s.incoming, 0)}</td><td className="num">{num(s.consumed, 0)}</td>
+                    <td className="num strong">{num(s.on_hand, 0)}</td><td className="num muted">{s.reserved ? num(s.reserved, 0) : '—'}</td>
+                    <td className="num">{s.on_hand < 100 ? <Chip tone={s.on_hand <= 0 ? 'bad' : 'warn'}>{num(s.available, 0)}</Chip> : num(s.available, 0)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table className="table dense">
+            <thead><tr><th>Date</th><th>Rope type (SKU)</th><th>mm</th><th>Colour</th><th className="num">{tab === 'outward' ? 'Qty out (m)' : 'Qty purchased (m)'}</th>{tab === 'outward' ? <><th>Issued to</th><th>Used for</th></> : <><th>Supplier</th><th>Invoice</th></>}<th>Remarks</th></tr></thead>
+            <tbody>
+              {(tab === 'outward' ? book?.outward_log : book?.purchase_log ?? [])
+                ?.filter((r: any) => match(...Object.values(r)))
+                .map((r: any, i: number) => (
+                  <tr key={i}>
+                    <td className="nowrap">{r.Date || <span className="faint">no date</span>}</td>
+                    <td className="strong">{r['Rope Type (SKU)']}</td><td>{r.mm}</td><td>{r.Color}</td>
+                    <td className="num strong">{r['Qty Out (m)'] ?? r['Qty Purchased (m)']}</td>
+                    {tab === 'outward' ? <><td>{r['Issued To'] || '—'}</td><td>{r['Used For (Job/Product)'] || '—'}</td></> : <><td>{r.Supplier || '—'}</td><td>{r['Invoice/Bill No.'] || '—'}</td></>}
+                    <td className="small muted">{r.Remarks}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div className="card-foot small muted">
+        {tab === 'master'
+          ? `Showing ${master.length} of ${stock.length} rope SKUs · balances include every movement recorded in this app since the workbook import.`
+          : 'Original workbook log as imported from Google Sheets (read-only). New issues and purchases are recorded with “Record transaction”.'}
+      </div>
+    </section>
+  );
+}
+
 function Movements() {
   const [type, setType] = useState('');
+  const [limit, setLimit] = useState(25);
   const { data } = useApi<any[]>(`/inventory/transactions${type ? `?type=${type}` : ''}`, ['inventory']);
   return (
     <Card pad={false} title={<Select style={{ width: 220, height: 32 }} value={type} onChange={(e) => setType(e.target.value)}><option value="">All movement types</option>{Object.entries(TXN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>}>
-      {!data ? <Loading rows={5} h={36} /> : data.length === 0 ? <Empty title="No movements" /> : <TxnTable rows={data} showMaterial />}
+      {!data ? <Loading rows={5} h={36} /> : data.length === 0 ? <Empty title="No movements" /> : (
+        <>
+          <TxnTable rows={data.slice(0, limit)} showMaterial />
+          {data.length > limit && <div className="card-foot row between"><span className="small muted">Showing {limit} of {data.length} movements</span><button className="btn sm" onClick={() => setLimit(limit + 50)}>Show more</button></div>}
+        </>
+      )}
     </Card>
   );
 }
