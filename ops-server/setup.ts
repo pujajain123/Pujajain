@@ -16,11 +16,13 @@ export function seedWorkspaceFromFiles() {
 /** Creates the developer-provided first accounts once, and returns their set-password links. */
 export async function seedInitialUsers(file = path.resolve('config/initial-users.json')) {
   if (get('SELECT 1 FROM users LIMIT 1') || !fs.existsSync(file)) return [];
-  const { users } = JSON.parse(fs.readFileSync(file, 'utf8')) as { users: { name: string; email: string; role: Role }[] };
+  const { users } = JSON.parse(fs.readFileSync(file, 'utf8')) as { users: { name: string; email?: string; role: Role }[] };
   const out = [];
   for (const u of users) {
     const r = await createUser(null, u);
-    out.push({ name: u.name, email: u.email, role: u.role, link: 'inviteLink' in r ? r.inviteLink : '' });
+    out.push('inviteLink' in r
+      ? { name: u.name, role: u.role, login: r.user.email, link: r.inviteLink }
+      : { name: u.name, role: u.role, login: r.loginId, password: r.password, link: r.loginLink });
   }
   return out;
 }
