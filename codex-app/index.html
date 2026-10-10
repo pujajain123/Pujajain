@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f5f6f4" />
+  <title>Umami Studios — Operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#dashboard" aria-label="Umami Studios home"><span class="brand-mark">u</span><span><strong>umami</strong><small>STUDIOS · OPERATIONS</small></span></a>
+      <button class="workspace-label" id="workspace-switcher" aria-expanded="false" aria-haspopup="true">
+        <span class="workspace-ident"><small>WORKSPACE</small><strong id="workspace-name">Umami Studios</strong></span><span class="workspace-chevron">⌄</span>
+      </button>
+      <div class="workspace-menu" id="workspace-menu" hidden>
+        <div class="workspace-menu-title">YOUR WORKSPACES</div>
+        <button class="workspace-option active" type="button"><span class="workspace-option-mark">U</span><span><strong id="workspace-menu-name">Umami Studios</strong><small>Current workspace</small></span><span class="workspace-check">✓</span></button>
+        <button class="workspace-manage" type="button" data-action="workspace-settings">Workspace settings <span>↗</span></button>
+      </div>
+      <nav id="navigation" aria-label="Main navigation">
+        <div class="nav-group"><small>OVERVIEW</small>
+          <a href="#dashboard" data-page="dashboard" class="nav-link active"><i>◫</i>Dashboard</a>
+          <a href="#orders" data-page="orders" class="nav-link"><i>▤</i>Orders <b id="nav-order-count">—</b></a>
+          <a href="#production" data-page="production" class="nav-link"><i>◉</i>Master production</a>
+          <a href="#jobs" data-page="jobs" class="nav-link"><i>▦</i>Job sheets</a>
+        </div>
+        <div class="nav-group"><small>OPERATIONS</small>
+          <a href="#inventory" data-page="inventory" class="nav-link"><i>▧</i>Inventory</a>
+          <a href="#dispatch" data-page="dispatch" class="nav-link"><i>↗</i>Dispatch</a>
+          <a href="#reports" data-page="reports" class="nav-link"><i>⌁</i>Reports</a>
+        </div>
+        <div class="nav-group"><small>WORKSPACE</small>
+          <a href="#staff" data-page="staff" class="nav-link"><i>♙</i>Staff</a>
+          <a href="#activity" data-page="activity" class="nav-link"><i>◷</i>Activity log</a>
+          <a href="#settings" data-page="settings" class="nav-link"><i>⚙</i>Settings</a>
+        </div>
+      </nav>
+      <div class="sidebar-bottom"><a class="help-card" href="#guide"><span class="help-icon">?</span><strong>Need a hand?</strong><p>Visit the operations guide for help with your workspace.</p><span class="text-button">Open guide <span>↗</span></span></a><button class="user-profile" id="role-menu-toggle" aria-haspopup="true" aria-expanded="false"><span class="avatar">SJ</span><span><strong>Shubham Jain</strong><small id="role-label">Administrator</small></span><span class="profile-more">Switch view⌄</span></button></div>
+      <div class="role-menu" id="role-menu" hidden><div class="role-menu-heading">CHOOSE A VIEW</div><button type="button" data-set-role="Admin"><span class="role-menu-icon">A</span><span><strong>Admin view</strong><small>Operations control center</small></span><span class="role-check" data-role-check="Admin">✓</span></button><button type="button" data-set-role="Staff"><span class="role-menu-icon staff">S</span><span><strong>Staff view</strong><small>My assigned work</small></span><span class="role-check" data-role-check="Staff">✓</span></button></div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar"><button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button><div class="breadcrumbs">Umami Studios <span>/</span> <strong id="breadcrumb">Dashboard</strong></div><div class="top-actions"><label class="searchbox"><span>⌕</span><input id="global-search" placeholder="Search orders, jobs, materials…" autocomplete="off"><kbd>⌘ K</kbd></label><button class="icon-button notification-button" id="notifications" aria-label="Notifications">♧<span class="notification-dot"></span></button><span class="top-divider"></span><button class="today-button" id="today-date"></button></div></header>
+      <div class="page-content" id="page-content"></div>
+    </main>
+  </div>
+  <div id="overlay-root"></div>
+  <div id="toast-region" aria-live="polite"></div>
+  <script src="seed-data.js"></script>
+  <script src="seed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

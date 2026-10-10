@@ -12,6 +12,7 @@
     "dev:api": "tsx watch --clear-screen=false server/index.ts",
     "dev:web": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build:codex": "node scripts/package-codex.mjs",
     "build:demo": "vite build --config vite.demo.config.ts && node scripts/package-demo.mjs",
     "start": "NODE_ENV=production tsx server/index.ts",
     "seed": "tsx server/seed.ts --reset",
