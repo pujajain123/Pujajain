@@ -278,7 +278,7 @@
       trigger.setAttribute('aria-expanded', 'false');
       control.querySelector('.app-select-menu').hidden = true;
       control.querySelectorAll('[data-custom-option]').forEach(item => {
-        const selected = item.dataset.customOption === value.value;
+        const selected = item.dataset.customOption === (value || nativeSelect).value;
         item.classList.toggle('selected', selected);
         item.setAttribute('aria-selected', String(selected));
       });

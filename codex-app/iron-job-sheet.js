@@ -170,6 +170,8 @@
     return true;
   }
 
+  window.umamiSaveFile = saveFile;
+
   async function download(j, format, button) {
     const s = ensureSheet(j), label = button.textContent;
     button.disabled = true; button.textContent = 'Preparing…';
