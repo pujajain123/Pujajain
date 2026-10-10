@@ -210,3 +210,34 @@ button.tracker-select{display:flex;align-items:center;justify-content:space-betw
 @media (max-width:800px){.wa-grid{grid-template-columns:1fr}}
 /* Native selects stay in the form for values but are replaced visually by the custom dropdown. */
 select.app-select-native{position:absolute!important;inset:0;width:100%!important;height:100%!important;opacity:0;pointer-events:none;margin:0}
+
+/* Umami brand: logo and brown buttons */
+:root{--brand:#502f20;--brand-dark:#3a2116;--brand-soft:#f5eee9}
+.brand{flex-direction:column;align-items:flex-start;gap:6px}
+.brand-logo{display:block;width:150px;max-width:100%;height:auto}
+.brand-sub{font-size:11px;letter-spacing:2.2px;color:#8f857f;padding-left:2px}
+.primary-button{border-color:var(--brand);background:var(--brand);box-shadow:0 2px 3px #3a211618}
+.primary-button:hover{background:var(--brand-dark);border-color:var(--brand-dark)}
+.secondary-button:hover,.compact-button:hover{border-color:var(--brand);color:var(--brand)}
+.nav-link.active{background:var(--brand-soft);color:var(--brand)}
+.nav-link.active i{color:var(--brand)}
+.inv-tab.active,.ijs-photo-button,.text-button{color:var(--brand)}
+.primary-button:focus-visible,.secondary-button:focus-visible{outline:2px solid #b08a76;outline-offset:2px}
+
+/* CSV report preview */
+.csv-report-panel{margin-top:22px}
+.csv-report-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.csv-report-actions .app-select{width:230px}
+.csv-sheet{overflow:auto;max-height:460px;border:1px solid #d4d9d4;border-radius:6px;background:#fff;margin-top:6px}
+.csv-sheet table{border-collapse:collapse;font-size:12px;min-width:100%}
+.csv-sheet th{position:sticky;top:0;background:#f1f3f1;color:#6b756f;font-weight:600;padding:4px 10px;border:1px solid #dde1dd;z-index:1}
+.csv-sheet td{border:1px solid #e4e7e4;padding:5px 10px;white-space:nowrap;color:var(--ink)}
+.csv-sheet .rn{background:#f1f3f1;color:#8a938d;text-align:center;width:38px;position:sticky;left:0}
+.csv-sheet tr.title td:not(.rn){font-weight:700;font-size:13px}
+.csv-sheet tr.head td:not(.rn){font-weight:700;background:var(--brand-soft)}
+.report-schedule{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--canvas);font-size:13px}
+.report-schedule .field.inline{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;margin:0}.report-schedule .field.inline span{white-space:nowrap}
+.report-schedule .app-select{width:180px}
+.report-due{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:10px;background:var(--amber-soft);margin-bottom:14px;font-size:13px}
+.report-due-modal{z-index:60}
+.modal-card.wide-card{width:min(860px,96vw)}

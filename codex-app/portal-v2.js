@@ -1,8 +1,6 @@
-/* Inventory entry fields, staff entries report and WhatsApp report delivery. Loaded after portal-updates.js. */
+/* Inventory entry fields, staff entries report and the monthly CSV report. Loaded after portal-updates.js. */
 (() => {
   const FABRIC_COMPANIES = ['Agora', 'SUNBRELLA', 'D’Decor', 'Gaurika', 'Asadeep', 'Sun N Joy', 'Others'];
-  const MAIN_WHATSAPP = '919833628272';
-  const MAIN_WHATSAPP_LABEL = '+91 98336 28272';
   const CATEGORIES = ['Rope', 'Fabric', 'Powder Color'];
   const persist = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   const num = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -10,7 +8,7 @@
   const monthKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const unitFor = m => m === 'Powder Color' ? 'kg' : 'm';
   const saveFile = (name, blob) => window.umamiSaveFile ? window.umamiSaveFile(name, blob) : Promise.resolve(false);
-  const csvBlob = rows => new Blob([rows.map(r => r.map(v => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')], { type: 'text/csv' });
+  const csvBlob = rows => new Blob(['\uFEFF' + rows.map(r => r.map(v => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')], { type: 'text/csv' });
 
   /* ---------- Sample staff entries (clearly marked DEMO, removable from the Staff page) ---------- */
   if (!db.staffDemoV2) {
@@ -145,122 +143,109 @@
     if (e.target.id === 'staff-report-kind') { staffFilter.kind = e.target.value; render(); }
   });
 
-  /* ---------- Reports: downloads and WhatsApp delivery ---------- */
+  /* ---------- Reports: monthly CSV report with a spreadsheet preview ---------- */
   function periodRange(period) {
     const now = new Date();
     const start = period === 'last' ? new Date(now.getFullYear(), now.getMonth() - 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
     return { key: monthKey(start), label: start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) };
   }
 
-  function reportText(period) {
+  // One sheet, in sections, so it opens directly in Excel.
+  function reportRows(period) {
     const { key, label } = periodRange(period);
     const inMonth = v => String(v || '').startsWith(key);
-    const orders = db.orders.filter(o => inMonth(o.orderDate));
-    const active = db.orders.filter(o => !['Completed', 'Dispatched'].includes(o.stage));
     const jobs = getJobs();
     const tx = db.transactions.filter(t => inMonth(t.date));
     const total = m => tx.filter(t => t.material === m).reduce((s, t) => s + num(t.qty), 0);
-    const byStaff = {};
-    db.activity.filter(a => inMonth(a.time) && a.actor && a.actor !== 'System').forEach(a => { byStaff[a.actor] = (byStaff[a.actor] || 0) + 1; });
-    const staffLines = Object.entries(byStaff).sort((a, b) => b[1] - a[1]).map(([p, n]) => `• ${p}: ${n} entries`);
+    const active = db.orders.filter(o => !['Completed', 'Dispatched'].includes(o.stage));
+    const entries = staffEntries().filter(a => inMonth(a.time));
+    const people = [...new Set(entries.map(a => a.actor))];
+    const blank = [''];
     return [
-      `*Umami Studios · Operations report · ${label}*`,
-      '',
-      '*Orders*',
-      `• New orders: ${orders.length}`,
-      `• Active orders: ${active.length} (${active.filter(isLate).length} overdue)`,
-      `• Completed or dispatched: ${db.orders.filter(o => ['Completed', 'Dispatched'].includes(o.stage)).length}`,
-      '',
-      '*Production*',
-      `• Job sheets completed: ${jobs.filter(j => j.p.status === 'Completed').length}/${jobs.length}`,
-      `• Delayed job sheets: ${jobs.filter(j => j.p.status === 'Delayed').length}`,
-      '',
-      '*Inventory added*',
-      `• Rope: ${total('Rope').toLocaleString('en-IN')} m`,
-      `• Fabric: ${total('Fabric').toLocaleString('en-IN')} m`,
-      `• Powder Color: ${total('Powder Color').toLocaleString('en-IN')} kg`,
-      '',
-      '*Staff entries*',
-      ...(staffLines.length ? staffLines : ['• No entries this month']),
-      '',
-      'Sent from the Umami Studios operations dashboard.'
-    ].join('\n');
+      [`Umami Studio · Operations report · ${label}`],
+      [`Generated ${fmtTime(new Date().toISOString())} by ${currentActor()}`],
+      blank,
+      ['SUMMARY', 'Value'],
+      ['New orders this month', db.orders.filter(o => inMonth(o.orderDate)).length],
+      ['Active orders', active.length],
+      ['Overdue active orders', active.filter(isLate).length],
+      ['Completed or dispatched orders', db.orders.length - active.length],
+      ['Job sheets completed', `${jobs.filter(j => j.p.status === 'Completed').length} of ${jobs.length}`],
+      ['Delayed job sheets', jobs.filter(j => j.p.status === 'Delayed').length],
+      ['Rope added (m)', total('Rope')],
+      ['Fabric added (m)', total('Fabric')],
+      ['Powder Color added (kg)', total('Powder Color')],
+      blank,
+      ['ORDERS', 'Client', 'Product', 'Qty', 'Stage', 'Deadline', 'Progress', 'Created by'],
+      ...db.orders.map(o => [o.id, o.client, o.product, o.qty, o.stage, o.deadline, `${progress(o)}%`, o.createdBy || '']),
+      blank,
+      ['INVENTORY TRANSACTIONS', 'Date', 'Category', 'Details', 'Quantity', 'Unit', 'Entered by'],
+      ...(tx.length ? tx.map(t => [t.id, t.date, t.material, [t.color, t.sku, t.mm && `${t.mm} mm`, t.company, t.colorName].filter(Boolean).join(' · '), t.qty, t.unit || unitFor(t.material), t.enteredBy || t.staff || '']) : [['No inventory transactions this month']]),
+      blank,
+      ['STAFF ENTRIES', 'Orders', 'Job sheets', 'Inventory', 'Other', 'Total'],
+      ...(people.length ? people.map(p => { const c = k => entries.filter(a => a.actor === p && kindOf(a) === k).length; return [p, c('Order'), c('Job sheet'), c('Inventory'), c('Other'), entries.filter(a => a.actor === p).length]; }) : [['No staff entries this month']])
+    ];
   }
 
-  function cleanNumber(raw) {
-    let d = String(raw || '').replace(/\D/g, '');
-    if (d.length === 10) d = '91' + d;
-    return d.length >= 11 && d.length <= 15 ? d : '';
+  const colName = i => String.fromCharCode(65 + i);
+  function sheetPreview(rows) {
+    const width = Math.max(...rows.map(r => r.length));
+    const isHead = r => r.length > 1 && /^[A-Z ]+$/.test(String(r[0]));
+    return `<div class="csv-sheet"><table><thead><tr><th class="rn"></th>${Array.from({ length: width }, (_, i) => `<th>${colName(i)}</th>`).join('')}</tr></thead><tbody>${rows.map((r, i) => `<tr class="${i === 0 ? 'title' : isHead(r) ? 'head' : ''}"><td class="rn">${i + 1}</td>${Array.from({ length: width }, (_, k) => `<td>${esc(r[k] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
-  function sendWhatsApp(to, period, reason) {
-    const a = document.createElement('a');
-    a.href = `https://wa.me/${to}?text=${encodeURIComponent(reportText(period))}`;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a); a.click(); a.remove();
-    if (to === MAIN_WHATSAPP && period === 'last') db.whatsappMonthlySent = periodRange('last').key;
-    const pretty = to === MAIN_WHATSAPP ? MAIN_WHATSAPP_LABEL : '+' + to;
-    db.whatsappLog = [{ to: pretty, period: periodRange(period).label, by: currentActor(), at: new Date().toISOString(), reason }, ...(db.whatsappLog || [])].slice(0, 20);
-    addActivity(currentActor(), 'Reports', `${periodRange(period).label} report sent to WhatsApp ${pretty}${reason === 'scheduled' ? ' (monthly schedule)' : ''}`);
+  const reportFile = period => `umami-report-${periodRange(period).key}.csv`;
+  async function downloadReport(period, reason) {
+    const ok = await saveFile(reportFile(period), csvBlob(reportRows(period)));
+    if (!ok) return;
+    db.reportLog = [{ period: periodRange(period).label, by: currentActor(), at: new Date().toISOString(), reason }, ...(db.reportLog || [])].slice(0, 20);
+    if (period === 'last') db.monthlyReportSent = periodRange('last').key;
+    addActivity(currentActor(), 'Reports', `${periodRange(period).label} report downloaded (CSV)`);
     persist();
-    toast(`WhatsApp opened with the report for ${pretty}. Press Send in WhatsApp.`);
+    document.querySelector('.report-due-modal')?.remove();
+    render();
+    toast('Report downloaded. It opens in Excel.');
   }
+  async function shareReport(period) {
+    const file = new File([csvBlob(reportRows(period))], reportFile(period), { type: 'text/csv' });
+    try { await navigator.share({ files: [file], title: `Umami report · ${periodRange(period).label}` }); addActivity(currentActor(), 'Reports', `${periodRange(period).label} report shared (CSV)`); persist(); }
+    catch (err) { if (err?.name !== 'AbortError') toast('Sharing is not available here. Download the CSV instead.'); }
+  }
+  const canShareFiles = () => { try { return !!navigator.canShare?.({ files: [new File(['x'], 'x.csv', { type: 'text/csv' })] }); } catch (e) { return false; } };
 
   let reportPeriod = 'current';
-  function whatsappPanel() {
-    const s = db.whatsappMonthly || { enabled: false, day: 1 };
-    const last = (db.whatsappLog || [])[0];
-    const due = monthlyDue();
-    return `<section class="panel whatsapp-report-panel wa-v2"><div class="panel-header"><div><div class="eyebrow">WHATSAPP REPORTS</div><h2>Send the report on WhatsApp</h2><p>Main recipient ${MAIN_WHATSAPP_LABEL}. You can also send a copy to your own number to view it.</p></div></div>
-      ${due ? `<div class="wa-due"><strong>The monthly report for ${periodRange('last').label} is due.</strong><button type="button" class="primary-button" data-wa-send="main" data-wa-period="last" data-wa-reason="scheduled">Send now to ${MAIN_WHATSAPP_LABEL}</button></div>` : ''}
-      <div class="wa-grid"><div class="wa-controls">
-        <label class="field"><span>Report period</span><select id="wa-period"><option value="current" ${reportPeriod === 'current' ? 'selected' : ''}>This month (${periodRange('current').label})</option><option value="last" ${reportPeriod === 'last' ? 'selected' : ''}>Last month (${periodRange('last').label})</option></select></label>
-        <button type="button" class="primary-button wa-send" data-wa-send="main">Send to ${MAIN_WHATSAPP_LABEL} ↗</button>
-        <label class="field"><span>Your WhatsApp number</span><input id="wa-my-number" inputmode="tel" placeholder="e.g. 98765 43210" value="${esc(db.adminWhatsApp || '')}"></label>
-        <button type="button" class="secondary-button wa-send" data-wa-send="mine">Send to my WhatsApp ↗</button>
-        <form id="wa-schedule-form" class="wa-schedule"><label class="checkbox-line"><input name="enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Send the monthly report to ${MAIN_WHATSAPP_LABEL} every month</label>
-          <label class="field"><span>Send on</span><select name="day">${Array.from({ length: 28 }, (_, i) => i + 1).map(d => `<option value="${d}" ${Number(s.day) === d ? 'selected' : ''}>${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'} of the month</option>`).join('')}</select></label>
-          <button class="secondary-button">Save monthly schedule</button></form>
-        <p class="small-note">On the chosen day, the dashboard asks the first admin who opens it to send last month's report, so it isn't missed. ${last ? `Last sent: ${esc(last.period)} report to ${esc(last.to)} by ${esc(last.by)}, ${fmtTime(last.at)}.` : 'No report sent yet.'}</p>
-      </div><div class="wa-preview"><div class="eyebrow">MESSAGE PREVIEW</div><pre>${esc(reportText(reportPeriod))}</pre></div></div></section>`;
+  function reportPanel() {
+    const s = db.monthlyReport || { enabled: false, day: 1 };
+    const last = (db.reportLog || [])[0];
+    return `<section class="panel csv-report-panel"><div class="panel-header"><div><div class="eyebrow">MONTHLY REPORT</div><h2>Report (CSV)</h2><p>Preview the report as a spreadsheet, then download it to open in Excel.</p></div>
+      <div class="csv-report-actions"><select id="report-period"><option value="current" ${reportPeriod === 'current' ? 'selected' : ''}>This month (${periodRange('current').label})</option><option value="last" ${reportPeriod === 'last' ? 'selected' : ''}>Last month (${periodRange('last').label})</option></select>${canShareFiles() ? '<button type="button" class="secondary-button" data-report-share>Share CSV</button>' : ''}<button type="button" class="primary-button" data-report-download>↓ Download CSV</button></div></div>
+      ${monthlyDue() ? `<div class="report-due"><strong>The ${periodRange('last').label} monthly report is due.</strong><button type="button" class="primary-button" data-report-download data-report-period="last" data-report-reason="scheduled">Download it now</button></div>` : ''}
+      ${sheetPreview(reportRows(reportPeriod))}
+      <form id="report-schedule-form" class="report-schedule"><label class="checkbox-line"><input name="enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Remind admins to download last month's report every month</label><label class="field inline"><span>On the</span><select name="day">${Array.from({ length: 28 }, (_, i) => i + 1).map(d => `<option value="${d}" ${Number(s.day) === d ? 'selected' : ''}>${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'} of the month</option>`).join('')}</select></label><button class="secondary-button">Save</button></form>
+      <p class="small-note">${last ? `Last downloaded: ${esc(last.period)} report by ${esc(last.by)}, ${fmtTime(last.at)}.` : 'No report downloaded yet.'}</p></section>`;
   }
 
   const reportsBase = renderReports;
   renderReports = function () {
-    let html = reportsBase().replace(/<section class="panel whatsapp-report-panel">[\s\S]*?<\/section>/, '');
-    return html + whatsappPanel();
+    return reportsBase().replace(/<section class="panel whatsapp-report-panel">[\s\S]*?<\/section>/, '') + reportPanel();
   };
 
   function monthlyDue() {
-    const s = db.whatsappMonthly;
+    const s = db.monthlyReport;
     if (!s?.enabled || db.role === 'Staff') return false;
     if (new Date().getDate() < Number(s.day || 1)) return false;
-    return db.whatsappMonthlySent !== periodRange('last').key;
+    return db.monthlyReportSent !== periodRange('last').key;
   }
 
   document.addEventListener('change', e => {
-    if (e.target.id === 'wa-period') { reportPeriod = e.target.value; render(); }
-    if (e.target.id === 'wa-my-number') { db.adminWhatsApp = e.target.value.trim(); persist(); }
+    if (e.target.id === 'report-period') { reportPeriod = e.target.value; render(); }
   });
 
   document.addEventListener('click', e => {
-    const send = e.target.closest('[data-wa-send]');
-    if (send) {
-      const period = send.dataset.waPeriod || reportPeriod;
-      if (send.dataset.waSend === 'mine') {
-        const field = document.querySelector('#wa-my-number'), to = cleanNumber(field?.value || db.adminWhatsApp);
-        if (!to) { toast('Enter your WhatsApp number first (10 digits, or with country code).'); field?.focus(); return; }
-        db.adminWhatsApp = field?.value.trim() || db.adminWhatsApp;
-        sendWhatsApp(to, period, 'self');
-      } else {
-        sendWhatsApp(MAIN_WHATSAPP, period, send.dataset.waReason || 'manual');
-        if (send.dataset.waReason === 'scheduled') { db.whatsappMonthlySent = periodRange('last').key; persist(); document.querySelector('.wa-due-modal')?.remove(); }
-      }
-      render();
-      return;
-    }
-    if (e.target.closest('[data-wa-later]')) { document.querySelector('.wa-due-modal')?.remove(); return; }
+    const dl = e.target.closest('[data-report-download]');
+    if (dl) { downloadReport(dl.dataset.reportPeriod || reportPeriod, dl.dataset.reportReason || 'manual'); return; }
+    if (e.target.closest('[data-report-share]')) { shareReport(reportPeriod); return; }
+    if (e.target.closest('[data-report-later]')) { document.querySelector('.report-due-modal')?.remove(); return; }
     if (e.target.closest('[data-staff-report-csv]')) {
       const rows = [['Date & time', 'Staff', 'Type', 'Reference', 'Entry', 'Sample data'], ...staffEntries().map(a => [fmtTime(a.time), a.actor, kindOf(a), a.entity, String(a.text).replace(/^DEMO · /, ''), a.demo || String(a.text).startsWith('DEMO · ') ? 'Yes' : ''])];
       saveFile(`umami-staff-report-${today()}.csv`, csvBlob(rows)).then(ok => ok && toast('Staff report downloaded.'));
@@ -278,13 +263,13 @@
   });
 
   document.addEventListener('submit', e => {
-    if (e.target.id !== 'wa-schedule-form') return;
+    if (e.target.id !== 'report-schedule-form') return;
     e.preventDefault();
     const f = new FormData(e.target);
-    db.whatsappMonthly = { enabled: f.has('enabled'), day: Number(f.get('day')) || 1, recipient: MAIN_WHATSAPP, updatedBy: currentActor(), updatedAt: new Date().toISOString() };
-    addActivity(currentActor(), 'Reports', `Monthly WhatsApp report ${db.whatsappMonthly.enabled ? `scheduled for day ${db.whatsappMonthly.day}` : 'schedule turned off'}`);
+    db.monthlyReport = { enabled: f.has('enabled'), day: Number(f.get('day')) || 1, updatedBy: currentActor(), updatedAt: new Date().toISOString() };
+    addActivity(currentActor(), 'Reports', `Monthly report reminder ${db.monthlyReport.enabled ? `set for day ${db.monthlyReport.day}` : 'turned off'}`);
     save();
-    toast(db.whatsappMonthly.enabled ? `Monthly report will be due on day ${db.whatsappMonthly.day} each month.` : 'Monthly schedule turned off.');
+    toast(db.monthlyReport.enabled ? `Monthly report reminder set for day ${db.monthlyReport.day}.` : 'Monthly report reminder turned off.');
   });
 
   // Download the order report through the viewer's download prompt where needed.
@@ -295,12 +280,12 @@
   };
   window.exportCSV = exportCSV;
 
-  // Monthly reminder: when the report is due, ask the admin once per visit.
+  // Monthly reminder: when last month's report is due, ask the admin once per visit.
   function showDueModal() {
-    if (!monthlyDue() || document.querySelector('.wa-due-modal') || document.querySelector('#overlay-root .modal-backdrop')) return;
+    if (!monthlyDue() || document.querySelector('.report-due-modal') || document.querySelector('#overlay-root .modal-backdrop')) return;
     const m = document.createElement('div');
-    m.className = 'modal-backdrop center wa-due-modal';
-    m.innerHTML = `<section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">MONTHLY REPORT DUE</div><h2>Send the ${periodRange('last').label} report</h2><p>It goes to ${MAIN_WHATSAPP_LABEL} on WhatsApp.</p></div></div><pre class="wa-due-preview">${esc(reportText('last'))}</pre><div class="form-actions"><button type="button" class="secondary-button" data-wa-later>Remind me later</button><button type="button" class="primary-button" data-wa-send="main" data-wa-period="last" data-wa-reason="scheduled">Send now ↗</button></div></section>`;
+    m.className = 'modal-backdrop center report-due-modal';
+    m.innerHTML = `<section class="modal-card wide-card"><div class="modal-heading"><div><div class="eyebrow">MONTHLY REPORT DUE</div><h2>${periodRange('last').label} report</h2><p>Download the CSV to open it in Excel.</p></div></div>${sheetPreview(reportRows('last'))}<div class="form-actions"><button type="button" class="secondary-button" data-report-later>Remind me later</button><button type="button" class="primary-button" data-report-download data-report-period="last" data-report-reason="scheduled">↓ Download CSV</button></div></section>`;
     document.body.appendChild(m);
   }
 

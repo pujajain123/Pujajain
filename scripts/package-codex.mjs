@@ -7,6 +7,7 @@ const js = (f) => `<script>\n${read(f).replace(/<\/script/gi, '<\\/script')}\n</
 let html = read('index.html');
 html = html.replace('<link rel="stylesheet" href="styles.css" />', `<style>\n${read('styles.css')}\n</style>`);
 for (const f of ['seed-data.js', 'seed.js', 'app.js', 'portal-updates.js', 'iron-job-sheet.js', 'portal-v2.js']) html = html.replace(`<script src="${f}"></script>`, js(f));
+html = html.replace('src="umami-logo.png"', `src="data:image/png;base64,${fs.readFileSync(`${dir}/umami-logo.png`).toString('base64')}"`);
 const head = /<head>([\s\S]*?)<\/head>/i.exec(html)[1].replace(/<meta[^>]*>\s*/gi, '').replace(/<title>[\s\S]*?<\/title>/i, '');
 const body = /<body>([\s\S]*?)<\/body>/i.exec(html)[1];
 fs.mkdirSync('dist-codex', { recursive: true });
