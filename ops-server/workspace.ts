@@ -1,7 +1,5 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { all, get, run, now, tx, kvGet, kvSet, bumpRevision, UPLOAD_DIR, type Row } from './db.ts';
+import { all, get, run, now, tx, kvGet, kvSet, bumpRevision, type Row } from './db.ts';
 import { HttpError, type Me } from './auth.ts';
 
 /* The dashboard's own record shapes (see codex-app/app.js). Kept as JSON; access rules live here. */
@@ -19,22 +17,33 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const num = (v: unknown) => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
 
-/* ---------- Photos: data URLs in records are stored as files and replaced by their URL ---------- */
+/* ---------- Photos: data URLs in records are stored in the uploads table and replaced by their URL ---------- */
 
-export function extractImages<T>(value: T): T {
+const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+
+export async function extractImages<T>(value: T): Promise<T> {
   if (typeof value === 'string') {
     const m = /^data:image\/(png|jpe?g|webp|gif);base64,([A-Za-z0-9+/=]+)$/.exec(value);
     if (!m) return value;
     const buf = Buffer.from(m[2], 'base64');
     if (buf.length > 8 * 1024 * 1024) throw new HttpError(413, 'Photos must be smaller than 8 MB.');
-    const name = `${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 32)}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`;
-    const file = path.join(UPLOAD_DIR, name);
-    if (!fs.existsSync(file)) fs.writeFileSync(file, buf);
+    const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+    const name = `${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 32)}.${ext}`;
+    await run('INSERT INTO uploads (name, content_type, data, created_at) VALUES (?,?,?,?) ON CONFLICT (name) DO NOTHING', name, MIME[ext], buf, now());
     return `/uploads/${name}` as T;
   }
-  if (Array.isArray(value)) return value.map(extractImages) as T;
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, extractImages(v)])) as T;
+  if (Array.isArray(value)) { const out = []; for (const v of value) out.push(await extractImages(v)); return out as T; }
+  if (value && typeof value === 'object') {
+    const out: Row = {};
+    for (const [k, v] of Object.entries(value)) out[k] = await extractImages(v);
+    return out as T;
+  }
   return value;
+}
+
+export async function readUpload(name: string) {
+  const r = await get('SELECT content_type, data FROM uploads WHERE name=?', name);
+  return r ? { type: r.content_type as string, data: Buffer.from(r.data) } : null;
 }
 
 /* ---------- Reads ---------- */
@@ -45,34 +54,34 @@ const parseOrder = (r: Row): Order => ({ ...JSON.parse(r.data), _version: r.vers
 export const isAssigned = (o: Order, name: string) => o.processes?.some(p => p.assigned === name);
 const staffView = (o: Order, name: string): Order => ({ ...o, processes: o.processes.filter(p => p.assigned === name) });
 
-export function readState(me: Me) {
+export async function readState(me: Me) {
   const admin = isAdmin(me);
-  const orders = orderRows().map(parseOrder);
+  const orders = (await orderRows()).map(parseOrder);
   const visible = admin ? orders : orders.filter(o => isAssigned(o, me.name)).map(o => staffView(o, me.name));
   const ids = new Set(visible.map(o => o.id));
   const jobPrefixes = visible.map(o => `JOB-${o.id.slice(3)}-`);
   const ownEntity = (e: string) => ids.has(e) || jobPrefixes.some(p => e.startsWith(p));
 
-  const transactions = all('SELECT data, user_id FROM transactions ORDER BY seq DESC').map(r => ({ row: r, t: JSON.parse(r.data) }))
+  const transactions = (await all('SELECT data, user_id FROM transactions ORDER BY seq DESC')).map(r => ({ row: r, t: JSON.parse(r.data) }))
     .filter(({ row, t }) => admin || row.user_id === me.id || ids.has(t.order)).map(({ t }) => t);
-  const activity = all('SELECT time, actor, entity, text, user_id, demo FROM activity ORDER BY time DESC, seq DESC LIMIT 2000')
+  const activity = (await all('SELECT time, actor, entity, text, user_id, demo FROM activity ORDER BY time DESC, seq DESC LIMIT 2000'))
     .filter(a => admin || a.user_id === me.id || a.actor === me.name || ownEntity(a.entity))
     .map(a => ({ time: a.time, actor: a.actor, entity: a.entity, text: a.text, ...(a.demo ? { demo: true } : {}) }));
-  const inventory = CATEGORIES.map(name => JSON.parse(get('SELECT data FROM inventory WHERE name=?', name)?.data ?? 'null')).filter(Boolean);
+  const inventory = await loadAllInventory();
 
   return {
-    db: { ...kvGet<Row>('settings', {}), orders: visible, inventory, transactions, activity, role: admin ? 'Admin' : 'Staff' },
-    tracker: admin ? kvGet<Row[]>('tracker', []) : [],
-    rope: kvGet<Row>('rope', null),
-    people: people(),
-    revision: kvGet('revision', 0),
+    db: { ...await kvGet<Row>('settings', {}), orders: visible, inventory, transactions, activity, role: admin ? 'Admin' : 'Staff' },
+    tracker: admin ? await kvGet<Row[]>('tracker', []) : [],
+    rope: await kvGet<Row>('rope', null),
+    people: await people(),
+    revision: Number(await kvGet('revision', 0)),
   };
 }
 
 /** Names that can be assigned work: active staff accounts plus anyone already assigned in an order. */
-export function people(): string[] {
-  const staff = all(`SELECT name FROM users WHERE role='staff' AND status<>'disabled' ORDER BY name`).map(r => r.name as string);
-  const assigned = orderRows().flatMap(r => (JSON.parse(r.data).processes || []).map((p: Process) => p.assigned)).filter(Boolean) as string[];
+export async function people(): Promise<string[]> {
+  const staff = (await all(`SELECT name FROM users WHERE role='staff' AND status<>'disabled' ORDER BY name`)).map(r => r.name as string);
+  const assigned = (await orderRows()).flatMap(r => (JSON.parse(r.data).processes || []).map((p: Process) => p.assigned)).filter(Boolean) as string[];
   return [...new Set([...staff, ...assigned])];
 }
 
@@ -89,22 +98,22 @@ function autoStage(o: Order) {
   if (o.stage === 'In production' && qty > 0 && o.processes.length && o.processes.every(p => num(p.completed) >= qty)) o.stage = 'Quality check';
 }
 
-function saveOrder(o: Order, actor: string, version: number) {
+async function saveOrder(o: Order, actor: string, version: number) {
   const { _version, ...data } = o as Order & { _version?: number };
-  run('UPDATE orders SET data=?, version=?, updated_at=?, updated_by=? WHERE id=?', JSON.stringify(data), version, now(), actor, o.id);
+  await run('UPDATE orders SET data=?, version=?, updated_at=?, updated_by=? WHERE id=?', JSON.stringify(data), version, now(), actor, o.id);
 }
 
-export function createOrder(me: Me, input: Order) {
+export async function createOrder(me: Me, input: Order) {
   if (!isAdmin(me)) throw new HttpError(403, 'Only admins can create orders.');
   validateOrder(input);
-  const o = extractImages(clone(input));
+  const o = await extractImages(clone(input));
   delete (o as Row)._version;
   o.createdBy = me.name;
   o.createdAt = o.createdAt || now();
-  return tx(() => {
-    if (get('SELECT 1 FROM orders WHERE id=?', o.id)) throw new HttpError(409, `Order ${o.id} already exists.`);
-    run('INSERT INTO orders (id, data, version, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?)', o.id, JSON.stringify(o), 1, now(), now(), me.name);
-    bumpRevision();
+  return tx(async () => {
+    const r = await run('INSERT INTO orders (id, data, version, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?) ON CONFLICT (id) DO NOTHING', o.id, JSON.stringify(o), 1, now(), now(), me.name);
+    if (r.changes !== 1) throw new HttpError(409, `Order ${o.id} already exists.`);
+    await bumpRevision();
     return { ...o, _version: 1 };
   });
 }
@@ -114,16 +123,16 @@ export function createOrder(me: Me, input: Order) {
  * (progress, steps, QC, job sheet) and product photos; everything else must stay as stored.
  * baseVersion guards against overwriting someone else's newer change.
  */
-export function updateOrder(me: Me, id: string, input: Order, baseVersion: number) {
+export async function updateOrder(me: Me, id: string, input: Order, baseVersion: number) {
   validateOrder(input);
   if (input.id !== id) throw new HttpError(400, 'Order ID cannot change.');
-  return tx(() => {
-    const row = get('SELECT data, version FROM orders WHERE id=?', id);
+  const incoming = await extractImages(clone(input));
+  return tx(async () => {
+    const row = await get('SELECT data, version FROM orders WHERE id=? FOR UPDATE', id);
     if (!row) throw new HttpError(404, 'Order not found.');
     const stored: Order = JSON.parse(row.data);
     if (!isAdmin(me) && !isAssigned(stored, me.name)) throw new HttpError(404, 'Order not found.');
     if (Number(baseVersion) !== row.version) throw new HttpError(409, 'This order was changed by someone else. The latest version has been loaded.', 'conflict');
-    const incoming = extractImages(clone(input));
     let next: Order;
     if (isAdmin(me)) {
       next = { ...incoming, createdBy: stored.createdBy, createdAt: stored.createdAt };
@@ -134,8 +143,8 @@ export function updateOrder(me: Me, id: string, input: Order, baseVersion: numbe
     next.updatedBy = me.name;
     next.updatedAt = now();
     autoStage(next);
-    saveOrder(next, me.name, row.version + 1);
-    bumpRevision();
+    await saveOrder(next, me.name, row.version + 1);
+    await bumpRevision();
     return isAdmin(me) ? { ...next, _version: row.version + 1 } : { ...staffView(next, me.name), _version: row.version + 1 };
   });
 }
@@ -169,17 +178,18 @@ function mergeStaffChanges(me: Me, stored: Order, incoming: Order): Order {
 
 /* ---------- Inventory ledger ---------- */
 
-const loadInventory = (name: string) => JSON.parse(get('SELECT data FROM inventory WHERE name=?', name)?.data ?? 'null');
+const loadInventory = async (name: string, lock = false) => JSON.parse((await get(`SELECT data FROM inventory WHERE name=?${lock ? ' FOR UPDATE' : ''}`, name))?.data ?? 'null');
+const loadAllInventory = async () => { const out = []; for (const n of CATEGORIES) { const i = await loadInventory(n); if (i) out.push(i); } return out; };
 const saveInventory = (item: Row) => run('INSERT INTO inventory (name, data) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET data=excluded.data', item.name, JSON.stringify(item));
 
-export function addTransaction(me: Me, input: Row) {
+export async function addTransaction(me: Me, input: Row) {
   const material = String(input?.material || ''), type = String(input?.type || 'Incoming'), qty = num(input?.qty);
   if (!(CATEGORIES as readonly string[]).includes(material)) throw new HttpError(400, 'Inventory category must be Rope, Fabric or Powder Color.');
   if (!TX_TYPES.includes(type)) throw new HttpError(400, 'Unknown transaction type.');
   if (!(qty > 0) || qty > 1e7) throw new HttpError(400, 'Quantity must be more than zero.');
   const order = input.order && input.order !== '—' ? String(input.order) : '—';
   if (order !== '—') {
-    const o = get('SELECT data FROM orders WHERE id=?', order);
+    const o = await get('SELECT data FROM orders WHERE id=?', order);
     if (!o || (!isAdmin(me) && !isAssigned(JSON.parse(o.data), me.name))) throw new HttpError(403, 'You can only link entries to your own orders.');
   }
   const str = (v: unknown, max = 120) => String(v ?? '').trim().slice(0, max);
@@ -194,19 +204,20 @@ export function addTransaction(me: Me, input: Row) {
   if (material === 'Rope' && type === 'Incoming' && (!t.sku || !t.color || !t.mm)) throw new HttpError(400, 'Rope entries need colour, SKU and MM.');
   if (material === 'Fabric' && type === 'Incoming' && !t.company) throw new HttpError(400, 'Fabric entries need a company.');
   if (material === 'Powder Color' && type === 'Incoming' && !t.colorName) throw new HttpError(400, 'Powder Color entries need a colour name.');
-  return tx(() => {
-    if (get('SELECT 1 FROM transactions WHERE id=?', t.id)) t.id = `TX-${Date.now()}-${crypto.randomInt(1000)}`;
-    applyTransaction(t);
-    run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,?,?)', t.id, JSON.stringify(t), me.id, 0, now());
-    bumpRevision();
-    return { transaction: t, inventory: CATEGORIES.map(loadInventory).filter(Boolean), rope: kvGet('rope', null) };
+  return tx(async () => {
+    if (await get('SELECT 1 FROM transactions WHERE id=?', t.id)) t.id = `TX-${Date.now()}-${crypto.randomInt(1000)}`;
+    await applyTransaction(t);
+    await run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,?,?)', t.id, JSON.stringify(t), me.id, 0, now());
+    await bumpRevision();
+    return { transaction: t, inventory: await loadAllInventory(), rope: await kvGet('rope', null) };
   });
 }
 
 /** Posts a ledger movement: rope purchases/issues go to the rope workbook, everything else to the category totals. */
-export function applyTransaction(t: Row) {
+export async function applyTransaction(t: Row) {
   if (t.material === 'Rope' && t.sku && (t.type === 'Incoming' || t.type === 'Outward')) {
-    const rope = kvGet<Row>('rope', null) || { stock_master: [], purchase_log: [], outward_log: [] };
+    const locked = await get(`SELECT value FROM kv WHERE key='rope' FOR UPDATE`);
+    const rope = (locked ? JSON.parse(locked.value) : null) || { stock_master: [], purchase_log: [], outward_log: [] };
     const eq = (a: unknown, b: unknown) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
     const masters = rope.stock_master || (rope.stock_master = []);
     let row = masters.find((r: Row) => eq(r['Rope Type (SKU)'], t.sku) && eq(r.mm, `${t.mm}mm`) && eq(r.Color, t.color));
@@ -223,23 +234,23 @@ export function applyTransaction(t: Row) {
       row['Current Balance (m)'] = String(current - t.qty);
       (rope.outward_log ||= []).unshift({ Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Out (m)': String(t.qty), 'Issued To': t.enteredBy, 'Used For (Job/Product)': t.order, Remarks: t.notes || '' });
     }
-    kvSet('rope', rope);
+    await kvSet('rope', rope);
     return;
   }
-  const inv = loadInventory(t.material) || { name: t.material, unit: t.unit, opening: 0, incoming: 0, adjustments: 0, reserved: 0, consumed: 0, wastage: 0, reorder: 0 };
+  const inv = await loadInventory(t.material, true) || { name: t.material, unit: t.unit, opening: 0, incoming: 0, adjustments: 0, reserved: 0, consumed: 0, wastage: 0, reorder: 0 };
   if (t.type === 'Incoming') inv.incoming += t.qty;
   else if (t.type === 'Outward' || t.type === 'Consumption') inv.consumed += t.qty;
   else if (t.type === 'Wastage') inv.wastage += t.qty;
   else inv.adjustments += t.qty;
-  saveInventory(inv);
+  await saveInventory(inv);
 }
 
 /* ---------- Activity (append-only; the actor is always the signed-in user) ---------- */
 
-export function addActivity(me: Me, entries: Row[]) {
+export async function addActivity(me: Me, entries: Row[]) {
   if (!Array.isArray(entries) || entries.length > 50) throw new HttpError(400, 'Send up to 50 activity entries at a time.');
-  const visible = isAdmin(me) ? null : new Set(orderRows().map(parseOrder).filter(o => isAssigned(o, me.name)).map(o => o.id));
-  return tx(() => {
+  const visible = isAdmin(me) ? null : new Set((await orderRows()).map(parseOrder).filter(o => isAssigned(o, me.name)).map(o => o.id));
+  return tx(async () => {
     for (const e of entries) {
       const entity = String(e?.entity || '').slice(0, 60), text = String(e?.text || '').slice(0, 500);
       if (!entity || !text) continue;
@@ -248,85 +259,87 @@ export function addActivity(me: Me, entries: Row[]) {
         if (!visible.has(orderId)) throw new HttpError(403, 'You can only record activity on your own orders.');
       }
       const actor = e?.actor === 'System' ? 'System' : me.name;
-      run('INSERT INTO activity (time, actor, entity, text, user_id) VALUES (?,?,?,?,?)', now(), actor, entity, text, me.id);
+      await run('INSERT INTO activity (time, actor, entity, text, user_id) VALUES (?,?,?,?,?)', now(), actor, entity, text, me.id);
     }
-    bumpRevision();
+    await bumpRevision();
   });
 }
 
 /* ---------- Admin-only workspace data ---------- */
 
-export function putSettings(me: Me, settings: Row) {
+export async function putSettings(me: Me, settings: Row) {
   if (!isAdmin(me)) throw new HttpError(403, 'Only admins can change workspace settings.');
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new HttpError(400, 'Settings must be an object.');
   const clean = Object.fromEntries(Object.entries(settings).filter(([k]) => !RESERVED_KEYS.has(k)));
   if (JSON.stringify(clean).length > 200_000) throw new HttpError(413, 'Settings are too large.');
-  kvSet('settings', clean);
-  bumpRevision();
+  await kvSet('settings', clean);
+  await bumpRevision();
   return clean;
 }
 
-export function putTracker(me: Me, rows: Row[]) {
+export async function putTracker(me: Me, rows: Row[]) {
   if (!isAdmin(me)) throw new HttpError(403, 'Only admins can edit the production tracker.');
   if (!Array.isArray(rows)) throw new HttpError(400, 'Tracker must be a list of rows.');
-  kvSet('tracker', rows);
-  bumpRevision();
+  await kvSet('tracker', rows);
+  await bumpRevision();
 }
 
-export function clearDemo(me: Me) {
+export async function clearDemo(me: Me) {
   if (!isAdmin(me)) throw new HttpError(403, 'Only admins can remove demo entries.');
-  tx(() => {
-    for (const r of all('SELECT data FROM transactions WHERE demo=1')) {
+  await tx(async () => {
+    for (const r of await all('SELECT data FROM transactions WHERE demo=1')) {
       const t = JSON.parse(r.data);
       if (t.material === 'Rope') continue;
-      const inv = loadInventory(t.material);
-      if (inv) { inv.incoming = Math.max(0, inv.incoming - num(t.qty)); saveInventory(inv); }
+      const inv = await loadInventory(t.material, true);
+      if (inv) { inv.incoming = Math.max(0, inv.incoming - num(t.qty)); await saveInventory(inv); }
     }
-    run('DELETE FROM transactions WHERE demo=1');
-    run('DELETE FROM activity WHERE demo=1');
-    for (const r of orderRows()) {
+    await run('DELETE FROM transactions WHERE demo=1');
+    await run('DELETE FROM activity WHERE demo=1');
+    for (const r of await orderRows()) {
       const o = JSON.parse(r.data);
-      if (o.createdByDemo) { o.createdBy = 'Shubham Jain'; delete o.createdByDemo; run('UPDATE orders SET data=? WHERE id=?', JSON.stringify(o), o.id); }
+      if (o.createdByDemo) { o.createdBy = 'Admin'; delete o.createdByDemo; await run('UPDATE orders SET data=? WHERE id=?', JSON.stringify(o), o.id); }
     }
-    bumpRevision();
+    await bumpRevision();
   });
 }
 
 /* ---------- First-run seed from the exported workspace snapshot ---------- */
 
-export function seedWorkspace(snapshot: Row, rope: Row, tracker: Row[]) {
-  if (get('SELECT 1 FROM kv WHERE key=?', 'seeded')) return false;
-  tx(() => {
+export async function seedWorkspace(snapshot: Row, rope: Row, tracker: Row[]) {
+  return tx(async () => {
+    // Only the first server instance to get here seeds; others wait for it, then see the marker.
+    await get('SELECT pg_advisory_xact_lock(727002)');
+    if (await get('SELECT 1 FROM kv WHERE key=?', 'seeded')) return false;
     const ops = snapshot.ordersAndOperations || {};
     for (const o of ops.orders || []) {
-      const data = extractImages(o);
-      run('INSERT OR IGNORE INTO orders (id, data, version, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?)', o.id, JSON.stringify(data), 1, o.createdAt || now(), now(), o.createdBy || 'System');
+      const data = await extractImages(o);
+      await run('INSERT INTO orders (id, data, version, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?) ON CONFLICT (id) DO NOTHING', o.id, JSON.stringify(data), 1, o.createdAt || now(), now(), o.createdBy || 'System');
     }
     const inv = ops.inventory || [];
     for (const name of CATEGORIES) {
       const found = inv.find((i: Row) => i.name === name);
-      saveInventory(found || { name, unit: name === 'Powder Color' ? 'kg' : 'm', opening: 0, incoming: 0, adjustments: 0, reserved: 0, consumed: 0, wastage: 0, reorder: 0 });
+      await saveInventory(found || { name, unit: name === 'Powder Color' ? 'kg' : 'm', opening: 0, incoming: 0, adjustments: 0, reserved: 0, consumed: 0, wastage: 0, reorder: 0 });
     }
     for (const t of [...(ops.transactions || [])].reverse()) {
-      run('INSERT OR IGNORE INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,?,?)', t.id, JSON.stringify(t), null, t.demo ? 1 : 0, now());
+      await run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,?,?) ON CONFLICT (id) DO NOTHING', t.id, JSON.stringify(t), null, t.demo ? 1 : 0, now());
     }
     for (const a of [...(ops.activity || [])].reverse()) {
-      run('INSERT INTO activity (time, actor, entity, text, user_id, demo) VALUES (?,?,?,?,?,?)', a.time, a.actor, a.entity, a.text, null, a.demo || String(a.text).startsWith('DEMO · ') ? 1 : 0);
+      await run('INSERT INTO activity (time, actor, entity, text, user_id, demo) VALUES (?,?,?,?,?,?)', a.time, a.actor, a.entity, a.text, null, a.demo || String(a.text).startsWith('DEMO · ') ? 1 : 0);
     }
     const { orders: _o, inventory: _i, transactions: _t, activity: _a, role: _r, ...settings } = ops;
     // The dashboard adds its own sample entries when these flags are missing; the server owns that data now.
-    kvSet('settings', { ...settings, sampleAuditEventsAdded: true, staffDemoV2: true, inventoryUnitMigrationV1: true });
-    kvSet('rope', rope);
-    kvSet('tracker', tracker);
-    kvSet('seeded', now());
-    if (process.env.OPS_DEMO_DATA !== '0') seedDemoEntries();
-    bumpRevision();
+    await kvSet('settings', { ...settings, sampleAuditEventsAdded: true, staffDemoV2: true, inventoryUnitMigrationV1: true });
+    await kvSet('rope', rope);
+    await kvSet('tracker', tracker);
+    await kvSet('seeded', now());
+    if (process.env.OPS_DEMO_DATA !== '0') await seedDemoEntries();
+    await bumpRevision();
+    return true;
   });
-  return true;
 }
 
 /** Sample staff entries (flagged demo) so the staff report has something to show; removable by an admin. */
-function seedDemoEntries() {
+async function seedDemoEntries() {
   const day = (d: number, h = 12) => { const x = new Date(Date.now() - d * 864e5); x.setHours(h, 15, 0, 0); return x.toISOString(); };
   const txs: Row[] = [
     ['TX-DEMO-101', 1, 'Rope', 'Amit Shah', { color: 'Ivory', sku: 'PP-ROPE-IV', mm: '6' }, 250],
@@ -335,9 +348,9 @@ function seedDemoEntries() {
     ['TX-DEMO-105', 6, 'Fabric', 'Pooja Rao', { company: 'D’Decor' }, 22],
   ].map(([id, d, material, staff, extra, qty]) => ({ id, material, type: 'Incoming', qty, unit: material === 'Powder Color' ? 'kg' : 'm', color: '', sku: '', mm: '', company: '', colorName: '', order: '—', job: '—', staff, enteredBy: staff, date: day(d as number).slice(0, 10), notes: 'Sample entry', demo: true, ...(extra as Row) }));
   for (const t of txs) {
-    if (get('SELECT 1 FROM transactions WHERE id=?', t.id)) continue;
-    if (t.material !== 'Rope') applyTransaction(t);
-    run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,1,?)', t.id, JSON.stringify(t), null, now());
+    if (await get('SELECT 1 FROM transactions WHERE id=?', t.id)) continue;
+    if (t.material !== 'Rope') await applyTransaction(t);
+    await run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,1,?)', t.id, JSON.stringify(t), null, now());
   }
   const acts: [number, number, string, string, string][] = [
     [1, 11, 'Amit Shah', 'Rope', 'Rope incoming transaction TX-DEMO-101 · Ivory · PP-ROPE-IV · 6 mm · 250 m'],
@@ -349,5 +362,5 @@ function seedDemoEntries() {
     [4, 12, 'Karan Patel', 'UM-1044', 'Dispatch details entered · vehicle and driver'],
     [6, 10, 'Pooja Rao', 'Fabric', 'Fabric incoming transaction TX-DEMO-105 · D’Decor · 22 m'],
   ];
-  for (const [d, h, actor, entity, text] of acts) run('INSERT INTO activity (time, actor, entity, text, user_id, demo) VALUES (?,?,?,?,NULL,1)', day(d, h), actor, entity, `DEMO · ${text}`);
+  for (const [d, h, actor, entity, text] of acts) await run('INSERT INTO activity (time, actor, entity, text, user_id, demo) VALUES (?,?,?,?,NULL,1)', day(d, h), actor, entity, `DEMO · ${text}`);
 }

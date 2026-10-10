@@ -7,10 +7,12 @@ import type { AddressInfo } from 'node:net';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-test-'));
 process.env.OPS_DATA_DIR = dir;
-process.env.OPS_DB_PATH = path.join(dir, 'test.db');
+// Runs on an in-memory embedded Postgres; set OPS_TEST_DATABASE_URL to run against a real server instead.
+process.env.OPS_PG_DIR = 'memory://';
+if (process.env.OPS_TEST_DATABASE_URL) process.env.DATABASE_URL = process.env.OPS_TEST_DATABASE_URL; else delete process.env.DATABASE_URL;
 process.env.APP_URL = 'http://test.local';
 
-const { openDb, run, get } = await import('../db.ts');
+const { openDb, closeDb, run, get } = await import('../db.ts');
 const { createApp } = await import('../app.ts');
 const { seedWorkspaceFromFiles } = await import('../setup.ts');
 const { createUser } = await import('../accounts.ts');
@@ -42,8 +44,8 @@ async function activate(link: string, password: string) {
 let admin: Client, amit: Client, rahul: Client;
 
 before(async () => {
-  openDb();
-  seedWorkspaceFromFiles();
+  await openDb();
+  await seedWorkspaceFromFiles();
   const a = await createUser(null, { name: 'Shubham Jain', email: 'admin@example.com', role: 'admin' });
   const s1 = await createUser(null, { name: 'Amit Shah', email: 'amit@example.com', role: 'staff' });
   const s2 = await createUser(null, { name: 'Rahul Mehta', email: 'rahul@example.com', role: 'staff' });
@@ -53,7 +55,7 @@ before(async () => {
   amit = await activate((s1 as { inviteLink: string }).inviteLink, 'amitPass123');
   rahul = await activate((s2 as { inviteLink: string }).inviteLink, 'rahulPass123');
 });
-after(() => { server?.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+after(async () => { server?.close(); await closeDb(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 test('there is no public sign-up and workspace data needs a session', async () => {
   const anon = new Client();
@@ -66,7 +68,7 @@ test('there is no public sign-up and workspace data needs a session', async () =
 });
 
 test('passwords are hashed and logins are checked', async () => {
-  const row = get('SELECT password_hash FROM users WHERE email=?', 'admin@example.com');
+  const row = await get('SELECT password_hash FROM users WHERE email=?', 'admin@example.com');
   assert.match(row.password_hash, /^scrypt:/);
   assert.ok(!row.password_hash.includes('adminPass123'));
   const c = new Client();
@@ -89,7 +91,7 @@ test('set-password links are single use', async () => {
 test('expired links are refused', async () => {
   const r = await createUser(null, { name: 'Karan Patel', email: 'karan@example.com', role: 'staff' });
   const link = (r as { inviteLink: string }).inviteLink;
-  run(`UPDATE auth_tokens SET expires_at='2000-01-01T00:00:00.000Z' WHERE used_at IS NULL AND user_id=(SELECT id FROM users WHERE email='karan@example.com')`);
+  await run(`UPDATE auth_tokens SET expires_at='2000-01-01T00:00:00.000Z' WHERE used_at IS NULL AND user_id=(SELECT id FROM users WHERE email='karan@example.com')`);
   const res = await new Client().post('/api/auth/set-password', { token: tokenOf(link), password: 'karanPass123' });
   assert.equal(res.status, 410);
   assert.match(res.body.error, /expired/);
@@ -153,7 +155,7 @@ test('inventory entries are posted to the ledger and attributed to the signed-in
   assert.equal(rope.status, 201);
   assert.ok(rope.body.rope.stock_master.some((x: Record<string, string>) => x['Rope Type (SKU)'] === 'TEST-SKU' && x['Current Balance (m)'] === '50'));
   assert.equal((await amit.post('/api/transactions', { transaction: { material: 'Foam', qty: 1 } })).status, 400);
-  assert.throws(() => run('DELETE FROM transactions WHERE demo=0'), /append-only/);
+  await assert.rejects(run('DELETE FROM transactions WHERE demo=0'), /append-only/);
 });
 
 test('staff cannot use admin endpoints', async () => {
@@ -188,26 +190,26 @@ test('admin adds staff with email: invite link returned and recorded for email',
   assert.equal(r.status, 201);
   assert.match(r.body.inviteLink, /\/set-password\?token=/);
   assert.equal(r.body.user.status, 'invited');
-  assert.ok(get('SELECT 1 FROM email_outbox WHERE to_addr=?', 'ravi@example.com'));
+  assert.ok(await get('SELECT 1 FROM email_outbox WHERE to_addr=?', 'ravi@example.com'));
   assert.equal((await new Client().post('/api/auth/login', { login: 'ravi@example.com', password: 'anything123' })).status, 401);
 });
 
 test('disable signs the user out, blocks login, and users are never deleted', async () => {
-  const id = get('SELECT id FROM users WHERE email=?', 'rahul@example.com').id;
+  const id = (await get('SELECT id FROM users WHERE email=?', 'rahul@example.com')).id;
   assert.equal((await admin.post(`/api/admin/users/${id}/disable`)).status, 200);
   assert.equal((await rahul.get('/api/state')).status, 401, 'existing session is revoked');
   const login = await new Client().post('/api/auth/login', { login: 'rahul@example.com', password: 'rahulPass123' });
   assert.equal(login.status, 401);
   assert.match(login.body.error, /disabled/);
-  assert.throws(() => run('DELETE FROM users WHERE id=?', id), /never deleted/);
+  await assert.rejects(run('DELETE FROM users WHERE id=?', id), /never deleted/);
   assert.equal((await admin.post(`/api/admin/users/${id}/enable`)).status, 200);
   assert.equal((await new Client().post('/api/auth/login', { login: 'rahul@example.com', password: 'rahulPass123' })).status, 200);
-  const self = get('SELECT id FROM users WHERE email=?', 'admin@example.com').id;
+  const self = (await get('SELECT id FROM users WHERE email=?', 'admin@example.com')).id;
   assert.equal((await admin.post(`/api/admin/users/${self}/disable`)).status, 400);
 });
 
 test('admin password reset issues a fresh single-use link and signs the user out', async () => {
-  const id = get('SELECT id FROM users WHERE email=?', 'amit@example.com').id;
+  const id = (await get('SELECT id FROM users WHERE email=?', 'amit@example.com')).id;
   const r = await admin.post(`/api/admin/users/${id}/reset-password`);
   assert.equal(r.status, 200);
   assert.ok(r.body.resetLink);
@@ -216,7 +218,7 @@ test('admin password reset issues a fresh single-use link and signs the user out
   assert.equal((await amit.get('/api/state')).status, 200);
 });
 
-test('photos sent as data URLs are stored as files', async () => {
+test('photos sent as data URLs are stored on the server and need a session', async () => {
   const o = (await admin.get('/api/state')).body.db.orders[1];
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
   const r = await admin.put(`/api/orders/${o.id}`, { order: { ...o, photoData: png }, baseVersion: o._version });
@@ -242,12 +244,12 @@ test('staff sharing the team inbox each get their own login; links go to the inb
   assert.equal(a.body.loginId, 'meera.joshi@umami.app');
   assert.equal(b.body.loginId, 'sanjay.das@umami.app');
   assert.equal(a.body.sentTo, 'admin@umamistudio.in');
-  assert.ok(get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%'`));
+  assert.ok(await get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%'`));
   const meera = await activate(a.body.inviteLink, 'meeraPass123');
   assert.equal((await meera.get('/api/auth/me')).body.user.email, 'meera.joshi@umami.app');
   const login = await new Client().post('/api/auth/login', { login: 'meera.joshi@umami.app', password: 'meeraPass123' });
   assert.equal(login.status, 200);
-  const id = get('SELECT id FROM users WHERE email=?', 'sanjay.das@umami.app').id;
+  const id = (await get('SELECT id FROM users WHERE email=?', 'sanjay.das@umami.app')).id;
   const reset = await admin.post(`/api/admin/users/${id}/reset-password`);
   assert.equal(reset.body.sentTo, 'admin@umamistudio.in');
   assert.ok(reset.body.resetLink);

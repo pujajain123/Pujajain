@@ -22,7 +22,7 @@ export async function sendMail(to: string, subject: string, body: string): Promi
       error = (e as Error).message;
     }
   }
-  run('INSERT INTO email_outbox (created_at, to_addr, subject, body, status, error) VALUES (?,?,?,?,?,?)', now(), to, subject, body, status, error ?? null);
+  await run('INSERT INTO email_outbox (created_at, to_addr, subject, body, status, error) VALUES (?,?,?,?,?,?)', now(), to, subject, body, status, error ?? null);
   if (status !== 'sent' && process.env.NODE_ENV !== 'test') console.log(`[mail:${status}] to ${to}: ${subject}\n${body}\n`);
   return { sent: status === 'sent', error: status === 'not_configured' ? 'Email is not set up yet' : error };
 }

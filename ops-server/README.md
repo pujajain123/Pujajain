@@ -1,7 +1,11 @@
 # Umami Studio operations server
 
-The backend for the dashboard in `codex-app/`. It serves the dashboard, stores every record in SQLite,
+The backend for the dashboard in `codex-app/`. It serves the dashboard, stores every record in Postgres,
 and enforces sign-in and roles on every request.
+
+- **Production (Vercel):** set `DATABASE_URL` to a Postgres database (e.g. Neon, added from Vercel → Storage).
+  `vercel.json` builds the deployment with `scripts/build-vercel.mjs`.
+- **Local / tests:** with no `DATABASE_URL`, an embedded Postgres (PGlite) is used, stored in `OPS_DATA_DIR/pg`.
 
 ## Run it
 
@@ -23,7 +27,6 @@ Developer commands:
 npm run ops:user -- list
 npm run ops:user -- link --email person@company.com        # new set-password link
 npm run ops:user -- invite --name "Name" --email x@y.com --role admin
-npm run ops:backup                                         # copy of the database to <data dir>/backups
 ```
 
 ## Environment
@@ -31,8 +34,9 @@ npm run ops:backup                                         # copy of the databas
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | 4100 | HTTP port |
-| `OPS_DATA_DIR` | `data/ops` | Database (`ops.db`) and uploaded photos (`uploads/`). Must be a persistent disk in production. |
-| `APP_URL` | request host | Public address used in set-password links |
+| `DATABASE_URL` | — | Postgres connection string (Neon/Vercel set this). Without it, an embedded Postgres in `OPS_DATA_DIR/pg` is used. |
+| `OPS_DATA_DIR` | `data/ops` | Location of the embedded database when `DATABASE_URL` is not set |
+| `APP_URL` | Vercel/Render address | Public address used in set-password links |
 | `RESEND_API_KEY`, `MAIL_FROM` | — | Send invite/reset emails through Resend. Without them, emails are kept in the `email_outbox` table and admins copy the link from the screen. |
 | `OPS_DEMO_DATA` | 1 | `0` skips the sample (DEMO) staff entries on first start |
 | `NODE_ENV=production` | — | Secure cookies (HTTPS only) |
@@ -53,4 +57,5 @@ npm run ops:backup                                         # copy of the databas
 - **Inventory** totals change only through ledger transactions, posted by the server. Transactions and activity are append-only
   (except rows flagged as demo data). Every entry records the signed-in user, whatever the browser sends.
 - **Conflicts:** each order has a version; a save based on an out-of-date copy is refused and the latest version is loaded.
-- **Photos** sent as data URLs are stored as files under `uploads/` and served only to signed-in users.
+- **Photos** are shrunk in the browser (max 1600 px), stored in the database and served only to signed-in users.
+- **Backups:** use your Postgres provider's backups (Neon keeps point-in-time history).

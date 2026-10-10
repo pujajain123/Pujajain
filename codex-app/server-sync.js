@@ -67,6 +67,26 @@
     if (ropeSheetData) rawSetItem.call(localStorage, KEYS.rope, JSON.stringify(ropeSheetData));
   }
 
+  // Hosting limits each request to a few MB: shrink large photos (kept as JPEG, max 1600 px) before sending.
+  const shrink = src => new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+  async function shrinkPhotos(obj) {
+    for (const [k, v] of Object.entries(obj || {})) {
+      if (typeof v === 'string' && v.startsWith('data:image/') && v.length > 300000) obj[k] = await shrink(v);
+      else if (v && typeof v === 'object') await shrinkPhotos(v);
+    }
+  }
+
   async function syncNow() {
     if (running) { again = true; return; }
     running = true;
@@ -74,6 +94,7 @@
       for (const o of db.orders) {
         const json = JSON.stringify(o), before = base.orders.get(o.id);
         if (before === json) continue;
+        if (json.includes('data:image/')) await shrinkPhotos(o);
         if (before === undefined) {
           if (!isAdmin) continue;
           const { order } = await request('POST', '/api/orders', { order: o });

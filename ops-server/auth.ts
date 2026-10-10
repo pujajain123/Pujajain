@@ -63,21 +63,21 @@ export function checkPasswordStrength(pw: unknown): string {
   return pw;
 }
 
-export function logAuthEvent(event: string, userId: number | null, actorId: number | null, detail = '') {
-  run('INSERT INTO auth_events (time, user_id, actor_id, event, detail) VALUES (?,?,?,?,?)', now(), userId, actorId, event, detail);
+export async function logAuthEvent(event: string, userId: number | null, actorId: number | null, detail = '') {
+  await run('INSERT INTO auth_events (time, user_id, actor_id, event, detail) VALUES (?,?,?,?,?)', now(), userId, actorId, event, detail);
 }
 
 /* ---------- Sessions ---------- */
 
-export function createSession(userId: number): string {
+export async function createSession(userId: number): Promise<string> {
   const token = crypto.randomBytes(32).toString('base64url');
-  run('INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?,?,?,?)', sha256(token), userId, now(), new Date(Date.now() + SESSION_DAYS * 864e5).toISOString());
+  await run('INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?,?,?,?)', sha256(token), userId, now(), new Date(Date.now() + SESSION_DAYS * 864e5).toISOString());
   return token;
 }
 
-export function revokeSessions(userId: number, exceptHash?: string) {
-  if (exceptHash) run('DELETE FROM sessions WHERE user_id=? AND token_hash<>?', userId, exceptHash);
-  else run('DELETE FROM sessions WHERE user_id=?', userId);
+export async function revokeSessions(userId: number, exceptHash?: string) {
+  if (exceptHash) await run('DELETE FROM sessions WHERE user_id=? AND token_hash<>?', userId, exceptHash);
+  else await run('DELETE FROM sessions WHERE user_id=?', userId);
 }
 
 function readCookie(req: Request, name: string): string | undefined {
@@ -94,15 +94,17 @@ export function setSessionCookie(res: Response, token: string | null) {
     : `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
 }
 
-export function loadMe(req: Request, _res: Response, next: NextFunction) {
-  const token = readCookie(req, COOKIE);
-  if (token) {
-    const hash = sha256(token);
-    const me = get(`SELECT u.id, u.name, u.email, u.role, u.must_change_password FROM sessions s JOIN users u ON u.id=s.user_id
-      WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`, hash, now());
-    if (me) { req.me = me as Me; req.sessionHash = hash; }
-  }
-  next();
+export async function loadMe(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const token = readCookie(req, COOKIE);
+    if (token) {
+      const hash = sha256(token);
+      const me = await get(`SELECT u.id, u.name, u.email, u.role, u.must_change_password FROM sessions s JOIN users u ON u.id=s.user_id
+        WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`, hash, now());
+      if (me) { req.me = me as Me; req.sessionHash = hash; }
+    }
+    next();
+  } catch (e) { next(e); }
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
@@ -116,37 +118,37 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
-/* ---------- Login throttling (per IP + login, in memory) ---------- */
+/* ---------- Login throttling (per IP + login, stored so it holds across server instances) ---------- */
 
-const attempts = new Map<string, { count: number; until: number }>();
 const WINDOW = 15 * 60 * 1000, MAX_ATTEMPTS = 8;
-export function throttle(key: string) {
-  const a = attempts.get(key);
-  if (a && a.until > Date.now() && a.count >= MAX_ATTEMPTS) throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
+export async function throttle(key: string) {
+  const a = await get('SELECT count, until FROM login_failures WHERE key=?', key);
+  if (a && a.until > now() && a.count >= MAX_ATTEMPTS) throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
 }
-export function recordFailure(key: string) {
-  const a = attempts.get(key);
-  if (!a || a.until < Date.now()) attempts.set(key, { count: 1, until: Date.now() + WINDOW });
-  else a.count++;
+export async function recordFailure(key: string) {
+  const until = new Date(Date.now() + WINDOW).toISOString();
+  await run(`INSERT INTO login_failures (key, count, until) VALUES (?, 1, ?)
+    ON CONFLICT (key) DO UPDATE SET count = CASE WHEN login_failures.until < ? THEN 1 ELSE login_failures.count + 1 END,
+    until = CASE WHEN login_failures.until < ? THEN excluded.until ELSE login_failures.until END`, key, until, now(), now());
 }
-export const clearFailures = (key: string) => attempts.delete(key);
+export const clearFailures = async (key: string) => { await run('DELETE FROM login_failures WHERE key=?', key); };
 
 /* ---------- Single-use tokens (invite / reset) ---------- */
 
-export function issueToken(userId: number, purpose: 'invite' | 'reset', actorId: number | null): string {
+export async function issueToken(userId: number, purpose: 'invite' | 'reset', actorId: number | null): Promise<string> {
   const token = crypto.randomBytes(32).toString('base64url');
-  tx(() => {
+  await tx(async () => {
     // A new link replaces any earlier unused link for the same account.
-    run(`UPDATE auth_tokens SET used_at=? WHERE user_id=? AND used_at IS NULL`, now(), userId);
-    run('INSERT INTO auth_tokens (user_id, token_hash, purpose, expires_at, created_at, created_by) VALUES (?,?,?,?,?,?)',
+    await run(`UPDATE auth_tokens SET used_at=? WHERE user_id=? AND used_at IS NULL`, now(), userId);
+    await run('INSERT INTO auth_tokens (user_id, token_hash, purpose, expires_at, created_at, created_by) VALUES (?,?,?,?,?,?)',
       userId, sha256(token), purpose, new Date(Date.now() + TOKEN_HOURS * 3600e3).toISOString(), now(), actorId);
   });
   return token;
 }
 
-export function findToken(token: unknown) {
+export async function findToken(token: unknown) {
   if (typeof token !== 'string' || token.length < 20) return null;
-  const t = get(`SELECT t.id, t.user_id, t.purpose, t.expires_at, t.used_at, u.email, u.name, u.status, u.has_email
+  const t = await get(`SELECT t.id, t.user_id, t.purpose, t.expires_at, t.used_at, u.email, u.name, u.status, u.has_email
     FROM auth_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=?`, sha256(token));
   if (!t) return null;
   if (t.used_at) return { ...t, invalid: 'This link has already been used. Ask an admin for a new one.' };
@@ -155,18 +157,18 @@ export function findToken(token: unknown) {
   return t;
 }
 
-export function consumeToken(tokenId: number) {
-  const r = run('UPDATE auth_tokens SET used_at=? WHERE id=? AND used_at IS NULL', now(), tokenId);
-  if (Number(r.changes) !== 1) throw new HttpError(410, 'This link has already been used.');
+export async function consumeToken(tokenId: number) {
+  const r = await run('UPDATE auth_tokens SET used_at=? WHERE id=? AND used_at IS NULL', now(), tokenId);
+  if (r.changes !== 1) throw new HttpError(410, 'This link has already been used.');
 }
 
-export const appUrl = (req?: Request) => (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:4100')).replace(/\/$/, '');
+export const appUrl = (req?: Request) => (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:4100')).replace(/\/$/, '');
 export const setPasswordLink = (token: string, req?: Request) => `${appUrl(req)}/set-password?token=${token}`;
 
 /** Unique generated login such as "rahul.mehta@umami.app". */
-export function generateLoginId(name: string): string {
+export async function generateLoginId(name: string): Promise<string> {
   const base = name.toLowerCase().normalize('NFKD').replace(/[^\w\s.-]/g, '').trim().replace(/[\s_]+/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '') || 'staff';
-  const taken = new Set(all('SELECT email FROM users WHERE email LIKE ?', `${base}%@umami.app`).map(r => String(r.email).toLowerCase()));
+  const taken = new Set((await all('SELECT email FROM users WHERE email LIKE ?', `${base}%@umami.app`)).map(r => String(r.email).toLowerCase()));
   for (let i = 1; ; i++) {
     const id = `${base}${i === 1 ? '' : i}@umami.app`;
     if (!taken.has(id)) return id;
