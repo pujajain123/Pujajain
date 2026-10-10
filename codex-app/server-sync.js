@@ -5,7 +5,7 @@
   const me = window.UMAMI_ME;
   const isAdmin = me.role === 'admin';
   const KEYS = { ops: 'umami-ops-v1', tracker: 'umami-production-tracker-v1', rope: 'umami-rope-inventory-v1' };
-  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'guide'];
+  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'reports', 'guide'];
   const RESERVED = new Set(['orders', 'inventory', 'transactions', 'activity', 'role']);
   const rawSetItem = Storage.prototype.setItem;
   let revision = window.UMAMI_SERVER.revision;
@@ -39,7 +39,7 @@
       const more = profile.querySelector('.profile-more'); if (more) more.textContent = 'Account⌄';
     }
     if (!isAdmin) {
-      document.querySelectorAll('.nav-link').forEach(a => { if (!STAFF_PAGES.includes(a.dataset.page)) a.style.display = 'none'; });
+      document.querySelectorAll('.nav-link').forEach(a => { a.style.display = STAFF_PAGES.includes(a.dataset.page) ? 'flex' : 'none'; });
       document.querySelectorAll('.nav-group').forEach(g => { g.style.display = [...g.querySelectorAll('.nav-link')].some(a => a.style.display !== 'none') ? '' : 'none'; });
       const picker = document.querySelector('#staff-person');
       if (picker) (picker.closest('.app-select') || picker).style.display = 'none';

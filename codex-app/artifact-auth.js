@@ -15,7 +15,7 @@
     { id: 'manish', name: 'Manish', email: STAFF_INBOX, role: 'staff' },
   ];
   const SESSION_KEY = 'umami-session-v1', LOCAL_ACCOUNTS = 'umami-accounts-v1';
-  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'guide'];
+  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'reports', 'guide'];
   const LOGO = document.querySelector('.brand-logo')?.getAttribute('src') || '';
   const norm = s => String(s || '').trim().toLowerCase();
   const slug = s => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'staff';
@@ -220,7 +220,7 @@
       menu.innerHTML = `<div class="role-menu-heading">${escHtml(me.email)}</div><button type="button" data-account-password><span class="role-menu-icon">⚿</span><span><strong>Change password</strong><small>Set a new password</small></span></button><button type="button" data-account-logout><span class="role-menu-icon staff">↪</span><span><strong>Sign out</strong><small>End this session</small></span></button>`;
     }
     if (me.role !== 'admin') {
-      document.querySelectorAll('.nav-link').forEach(a => { if (!STAFF_PAGES.includes(a.dataset.page)) a.style.display = 'none'; });
+      document.querySelectorAll('.nav-link').forEach(a => { a.style.display = STAFF_PAGES.includes(a.dataset.page) ? 'flex' : 'none'; });
       document.querySelectorAll('.nav-group').forEach(g => { g.style.display = [...g.querySelectorAll('.nav-link')].some(a => a.style.display !== 'none') ? '' : 'none'; });
       const picker = document.querySelector('#staff-person');
       if (picker) (picker.closest('.app-select') || picker).style.display = 'none';
@@ -320,6 +320,33 @@
     toast(`${name} added. They sign in with ${norm(d.email)} and create their password.`);
     team = null; render();
   }, true);
+
+  /* ---------- Show/hide button on every password box ---------- */
+  const EYE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  function addPasswordEyes(root = document) {
+    root.querySelectorAll?.('input[type=password]:not([data-eye])').forEach(input => {
+      input.dataset.eye = '1';
+      const wrap = document.createElement('span');
+      wrap.className = 'pw-wrap';
+      input.parentNode.insertBefore(wrap, input);
+      wrap.append(input);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pw-eye';
+      btn.setAttribute('aria-label', 'Show password');
+      btn.innerHTML = EYE;
+      btn.addEventListener('click', () => {
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.innerHTML = show ? EYE_OFF : EYE;
+        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        input.focus();
+      });
+      wrap.append(btn);
+    });
+  }
+  new MutationObserver(() => addPasswordEyes()).observe(document.body, { childList: true, subtree: true });
 
   /* ---------- Start ---------- */
   screen('<h1>Loading…</h1><p class="auth-sub">Preparing sign-in.</p>');

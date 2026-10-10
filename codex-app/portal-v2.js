@@ -144,11 +144,27 @@
   });
 
   /* ---------- Reports: monthly CSV report with a spreadsheet preview ---------- */
+  // A report period is 'current', 'last', or any month as 'YYYY-MM'.
   function periodRange(period) {
     const now = new Date();
-    const start = period === 'last' ? new Date(now.getFullYear(), now.getMonth() - 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const m = /^(\d{4})-(\d{2})$/.exec(period || '');
+    const start = m ? new Date(Number(m[1]), Number(m[2]) - 1, 1)
+      : period === 'last' ? new Date(now.getFullYear(), now.getMonth() - 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
     return { key: monthKey(start), label: start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) };
   }
+  // Every month from the earliest record (at most 5 years back) to now, newest first.
+  function monthOptions() {
+    const now = new Date();
+    const dates = [...db.orders.map(o => o.orderDate), ...db.transactions.map(t => t.date)].filter(d => /^\d{4}-\d{2}/.test(String(d || ''))).sort();
+    const first = dates[0] ? new Date(Number(dates[0].slice(0, 4)), Number(dates[0].slice(5, 7)) - 1, 1) : now;
+    const months = [];
+    for (let d = new Date(now.getFullYear(), now.getMonth(), 1), i = 0; i < 60; i++, d = new Date(d.getFullYear(), d.getMonth() - 1, 1)) {
+      if (i >= 12 && d < first) break;
+      months.push(monthKey(d));
+    }
+    return months;
+  }
+
 
   // One sheet, in sections, so it opens directly in Excel.
   function reportRows(period) {
@@ -217,11 +233,11 @@
   function reportPanel() {
     const s = db.monthlyReport || { enabled: false, day: 1 };
     const last = (db.reportLog || [])[0];
-    return `<section class="panel csv-report-panel"><div class="panel-header"><div><div class="eyebrow">MONTHLY REPORT</div><h2>Report (CSV)</h2><p>Preview the report as a spreadsheet, then download it to open in Excel.</p></div>
-      <div class="csv-report-actions"><select id="report-period"><option value="current" ${reportPeriod === 'current' ? 'selected' : ''}>This month (${periodRange('current').label})</option><option value="last" ${reportPeriod === 'last' ? 'selected' : ''}>Last month (${periodRange('last').label})</option></select>${canShareFiles() ? '<button type="button" class="secondary-button" data-report-share>Share CSV</button>' : ''}<button type="button" class="primary-button" data-report-download>↓ Download CSV</button></div></div>
+    return `<section class="panel csv-report-panel"><div class="panel-header"><div><div class="eyebrow">MONTHLY REPORT</div><h2>Report (CSV)</h2><p>Choose any month, preview the report as a spreadsheet, then download it to open in Excel.</p></div>
+      <div class="csv-report-actions"><select id="report-period">${monthOptions().map((k, i) => { const v = i === 0 ? 'current' : i === 1 ? 'last' : k; return `<option value="${v}" ${reportPeriod === v ? 'selected' : ''}>${periodRange(k).label}${i === 0 ? ' (this month)' : i === 1 ? ' (last month)' : ''}</option>`; }).join('')}</select>${canShareFiles() ? '<button type="button" class="secondary-button" data-report-share>Share CSV</button>' : ''}<button type="button" class="primary-button" data-report-download>↓ Download CSV</button></div></div>
       ${monthlyDue() ? `<div class="report-due"><strong>The ${periodRange('last').label} monthly report is due.</strong><button type="button" class="primary-button" data-report-download data-report-period="last" data-report-reason="scheduled">Download it now</button></div>` : ''}
       ${sheetPreview(reportRows(reportPeriod))}
-      <form id="report-schedule-form" class="report-schedule"><label class="checkbox-line"><input name="enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Remind admins to download last month's report every month</label><label class="field inline"><span>On the</span><select name="day">${Array.from({ length: 28 }, (_, i) => i + 1).map(d => `<option value="${d}" ${Number(s.day) === d ? 'selected' : ''}>${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'} of the month</option>`).join('')}</select></label><button class="secondary-button">Save</button></form>
+      ${db.role === 'Staff' ? '' : `<form id="report-schedule-form" class="report-schedule"><label class="checkbox-line"><input name="enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Remind admins to download last month's report every month</label><label class="field inline"><span>On the</span><select name="day">${Array.from({ length: 28 }, (_, i) => i + 1).map(d => `<option value="${d}" ${Number(s.day) === d ? 'selected' : ''}>${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'} of the month</option>`).join('')}</select></label><button class="secondary-button">Save</button></form>`}
       <p class="small-note">${last ? `Last downloaded: ${esc(last.period)} report by ${esc(last.by)}, ${fmtTime(last.at)}.` : 'No report downloaded yet.'}</p></section>`;
   }
 
