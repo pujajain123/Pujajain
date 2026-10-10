@@ -14,11 +14,11 @@ services:
       sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: "22.12.0"
+        value: "22.22.0"
       - key: OPS_DATA_DIR
         value: /var/data
       - key: APP_URL
-        sync: false          # e.g. https://umami-ops.onrender.com (used in set-password links)
+        sync: false          # optional: your own domain; defaults to the onrender.com address
       - key: RESEND_API_KEY
         sync: false          # optional: lets the server email invite and reset links
       - key: MAIL_FROM

@@ -160,7 +160,7 @@ export function consumeToken(tokenId: number) {
   if (Number(r.changes) !== 1) throw new HttpError(410, 'This link has already been used.');
 }
 
-export const appUrl = (req?: Request) => (process.env.APP_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:4100')).replace(/\/$/, '');
+export const appUrl = (req?: Request) => (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:4100')).replace(/\/$/, '');
 export const setPasswordLink = (token: string, req?: Request) => `${appUrl(req)}/set-password?token=${token}`;
 
 /** Unique generated login such as "rahul.mehta@umami.app". */
