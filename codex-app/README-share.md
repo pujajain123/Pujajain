@@ -6,7 +6,9 @@ Open this project folder in Claude Code:
 
 `/Users/shubhamjain/Documents/ChatGPT/Umami dashboard project`
 
-The project contains the dashboard source (`index.html`, `app.js`, `styles.css`), the imported rope inventory snapshot (`rope_inventory_data.json`), and a browser workspace export (`umami-workspace-data-2026-10-08.json`).
+The project contains the dashboard source (`index.html`, `app.js`, `portal-updates.js`, `styles.css`), the imported rope inventory snapshot (`rope_inventory_data.json`), and a browser workspace export (`umami-workspace-data-2026-10-08.json`).
+
+Recent portal updates add Rope, Fabric and Powder Color inventory flows, staff-attributed order and stock entries, and a WhatsApp monthly-report draft for +91 98336 28272. The report view can save a monthly schedule preference, but this static browser-only app cannot deliver unattended messages. That needs a server-side scheduler, shared server storage and WhatsApp Business API credentials. The WhatsApp action opens a prefilled message for review and sending.
 
 ## Transfer browser data
 

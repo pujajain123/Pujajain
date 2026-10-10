@@ -126,3 +126,30 @@ button.tracker-select{display:flex;align-items:center;justify-content:space-betw
 .job-product-photo-row>div{display:grid;gap:4px;flex:1;min-width:0}
 .job-product-photo-row>div strong{font-size:13px}
 .job-product-photo-row>div small{font-size:12px;color:#7b877f}
+
+/* Inventory and report delivery controls */
+.stock-grid.inventory-category-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px}
+.inventory-category-card{display:flex;flex-direction:column;align-items:stretch;min-width:0}
+.inventory-category-card .stock-number{margin:15px 0 12px}
+.inventory-category-card .compact-button{align-self:flex-start;margin-top:auto}
+.inventory-ledger{margin-top:16px}
+.inventory-source-details{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 17px}
+.inventory-source-details>summary{cursor:pointer;color:#526058;font-size:13px;font-weight:700}
+.inventory-source-details[open]>summary{margin-bottom:14px}
+.inventory-source-details .rope-sheet{margin-top:0}
+.whatsapp-report-panel{margin-top:18px}
+.whatsapp-report-panel .panel-header{gap:14px;align-items:center}
+.whatsapp-schedule{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin:14px 0}
+.whatsapp-schedule .field{min-width:190px}
+.whatsapp-schedule .checkbox-line{align-self:center}
+.whatsapp-schedule .checkbox-line input{accent-color:var(--green)}
+@media(max-width:1100px){.stock-grid.inventory-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.stock-grid.inventory-category-grid{grid-template-columns:1fr}.whatsapp-report-panel .panel-header{align-items:flex-start;flex-direction:column}.whatsapp-schedule{align-items:stretch;flex-direction:column}.whatsapp-schedule .field{width:100%}}
+.field[hidden]{display:none!important}
+.app-select{position:relative;width:100%}
+.app-select-trigger{width:100%;min-height:38px;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:9px 10px;border:1px solid #e3e8e3;border-radius:7px;background:#fff;color:#47534b;font-size:13px;font-weight:400}
+.app-select-trigger:after{content:'⌄';color:#77837b;margin-left:10px}
+.app-select-trigger:focus-visible,.app-select-option:focus-visible{outline:2px solid #80b69a;outline-offset:1px}
+.app-select-menu{position:absolute;z-index:42;top:calc(100% + 4px);left:0;right:0;max-height:230px;overflow:auto;padding:4px;background:#fff;border:1px solid #e3e8e3;border-radius:8px;box-shadow:0 10px 25px #17231b20}
+.app-select-option{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:9px 10px;border:0;border-radius:5px;background:#fff;color:#47534b;font-size:13px}
+.app-select-option:hover,.app-select-option.selected{background:#edf5f0;color:var(--green-dark)}
