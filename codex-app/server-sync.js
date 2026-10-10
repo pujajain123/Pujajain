@@ -191,7 +191,7 @@
   function accountsPanel() {
     if (!users) { loadUsers(); return '<section class="panel team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM ACCOUNTS</div><h2>Logins and access</h2></div></div><div class="empty-state">Loading accounts…</div></section>'; }
     return `<section class="panel team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM ACCOUNTS</div><h2>Logins and access</h2><p>Each person has their own login. Accounts are never deleted; disable them instead.</p></div><button type="button" class="primary-button" data-action="add-staff">＋ Add staff</button></div>
-      <div class="table-wrap"><table class="data-table"><thead><tr><th>NAME</th><th>LOGIN</th><th>ROLE</th><th>STATUS</th><th>LAST SIGN-IN</th><th></th></tr></thead><tbody>${users.map(u => `<tr><td><strong>${esc(u.name)}</strong>${u.id === me.id ? ' <small class="demo-tag" style="color:var(--muted)">YOU</small>' : ''}</td><td>${esc(u.email)}${u.hasEmail ? '' : '<small style="display:block;color:#9ca49f">Generated login ID</small>'}</td><td>${u.role === 'admin' ? 'Admin' : 'Staff'}</td><td>${statusChip(u.status)}${u.mustChangePassword && u.status === 'active' ? '<small style="display:block;color:#9ca49f">Must change password</small>' : ''}</td><td>${u.lastLoginAt ? fmtTime(u.lastLoginAt) : '—'}</td>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>NAME</th><th>LOGIN</th><th>ROLE</th><th>STATUS</th><th>LAST SIGN-IN</th><th></th></tr></thead><tbody>${users.map(u => `<tr><td><strong>${esc(u.name)}</strong>${u.id === me.id ? ' <small class="demo-tag" style="color:var(--muted)">YOU</small>' : ''}</td><td>${esc(u.email)}${u.hasEmail ? '' : `<small style="display:block;color:#9ca49f">Generated login ID${u.notifyEmail ? ` · emails go to ${esc(u.notifyEmail)}` : ''}</small>`}</td><td>${u.role === 'admin' ? 'Admin' : 'Staff'}</td><td>${statusChip(u.status)}${u.mustChangePassword && u.status === 'active' ? '<small style="display:block;color:#9ca49f">Must change password</small>' : ''}</td><td>${u.lastLoginAt ? fmtTime(u.lastLoginAt) : '—'}</td>
         <td class="account-actions">${u.status !== 'disabled' ? `<button type="button" class="compact-button" data-account-reset="${u.id}">${u.status === 'invited' ? 'New invite link' : 'Reset password'}</button>` : ''}${u.id === me.id ? '' : u.status === 'disabled' ? `<button type="button" class="compact-button" data-account-enable="${u.id}">Enable</button>` : `<button type="button" class="compact-button" data-account-disable="${u.id}">Disable</button>`}</td></tr>`).join('')}</tbody></table></div></section>`;
   }
 
@@ -204,8 +204,8 @@
   openStaffForm = function () {
     document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">STAFF</div><h2>Add staff</h2><p>Give a new team member their own login.</p></div><button class="close-button" data-close>×</button></div>
       <form id="add-staff-form"><div class="form-grid"><div class="field full"><label>Name <span style="color:var(--red)">*</span></label><input name="name" required maxlength="80" placeholder="e.g. Neha Kapoor"></div>
-      <div class="field full"><label>Email (optional)</label><input name="email" type="email" placeholder="Their real email address"></div></div>
-      <div class="info-banner">With an email, they get a link to set their own password. Without one, a login ID like <b>name@umami.app</b> and a temporary password are created for you to share.<br>Their name must match the name used when assigning jobs.</div>
+      <div class="field full"><label>Email (optional)</label><input name="email" type="email" placeholder="Their own email, or the staff inbox admin@umamistudio.in"></div></div>
+      <div class="info-banner"><b>Their own email:</b> it becomes their login, and they get a link to set their password.<br><b>The staff inbox (admin@umamistudio.in):</b> they get their own login ID like <b>name@umami.app</b>, and the set-password link is emailed to the staff inbox.<br><b>No email:</b> a login ID and a temporary password are created for you to share.<br>Their name must match the name used when assigning jobs.</div>
       <div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Create login</button></div></form></section></div>`;
   };
   window.openStaffForm = openStaffForm;
@@ -218,8 +218,9 @@
       parts.push('<p class="small-note">They must choose their own password the first time they sign in.</p>');
     } else {
       const link = r.inviteLink || r.resetLink;
-      parts.push(copyRow('Email', r.user.email), copyRow('Set-password link (single use, 48 hours)', link));
-      parts.push(`<p class="small-note">${r.emailSent ? `The link was also emailed to ${esc(r.user.email)}.` : `The email could not be sent (${esc(r.emailError || 'email not set up')}). Share the link yourself.`}</p>`);
+      parts.push(r.loginId ? copyRow('Login ID', r.loginId) : copyRow('Email', r.user.email), copyRow('Set-password link (single use, 48 hours)', link));
+      const to = r.sentTo || r.user.email;
+      parts.push(`<p class="small-note">${r.emailSent ? `The link was also emailed to ${esc(to)}.` : `The email to ${esc(to)} could not be sent (${esc(r.emailError || 'email not set up')}). Share the link yourself.`}</p>`);
     }
     document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">LOGIN DETAILS</div><h2>${esc(title)}</h2><p>${esc(r.user.name)}</p></div><button class="close-button" data-close>×</button></div>${parts.join('')}<div class="form-actions"><button type="button" class="primary-button" data-close>Done</button></div></section></div>`;
   }

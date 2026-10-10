@@ -39,7 +39,7 @@ npm run ops:backup                                         # copy of the databas
 
 ## How access works
 
-- **First accounts:** Khushboo and Bhavya (admins, set-password links) and Amit Shah and Rahul Mehta (staff, generated login IDs). Edit `config/initial-users.json` to change them before the first start.
+- **First accounts:** Khushboo and Bhavya (admins, set-password links) and Amit Shah and Rahul Mehta (staff: own generated login IDs, links emailed to the shared staff inbox admin@umamistudio.in, set with `OPS_SHARED_STAFF_EMAIL`). Edit `config/initial-users.json` to change them before the first start.
 - **Accounts:** `admin` or `staff`, one unique login each (real email, or a generated `name@umami.app` ID). No public sign-up.
   Accounts are never deleted (a database trigger blocks it); admins disable and enable them.
 - **Passwords:** scrypt-hashed with a per-user salt. Generated passwords are shown once and must be changed at first sign-in.

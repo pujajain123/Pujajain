@@ -1,9 +1,9 @@
 {
-  "_note": "First accounts, created when the server starts with an empty database. People with an email get a single-use set-password link (48 hours); people without one get a generated name@umami.app login ID and a temporary password they must change. Both are printed in the server log (Render: Logs tab).",
+  "_note": "First accounts, created when the server starts with an empty database. Admins log in with their own email and get a single-use set-password link (48 hours). Staff using the shared staff inbox get their own generated name@umami.app login ID; their set-password links are emailed to that inbox. All links are also printed in the server log (Render: Logs tab).",
   "users": [
     { "name": "Khushboo", "email": "khushboo@umamistudio.in", "role": "admin" },
     { "name": "Bhavya", "email": "bhavya@umamistudio.in", "role": "admin" },
-    { "name": "Amit Shah", "role": "staff" },
-    { "name": "Rahul Mehta", "role": "staff" }
+    { "name": "Amit Shah", "email": "admin@umamistudio.in", "role": "staff" },
+    { "name": "Rahul Mehta", "email": "admin@umamistudio.in", "role": "staff" }
   ]
 }

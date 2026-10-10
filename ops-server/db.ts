@@ -128,6 +128,9 @@ export function openDb(file = process.env.OPS_DB_PATH ?? path.join(DATA_DIR, 'op
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   db = new DatabaseSync(file);
   db.exec(SCHEMA);
+  // notify_email: where account emails go when it differs from the login (e.g. a shared team inbox).
+  const cols = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+  if (!cols.some(c => c.name === 'notify_email')) db.exec('ALTER TABLE users ADD COLUMN notify_email TEXT');
   return db;
 }
 

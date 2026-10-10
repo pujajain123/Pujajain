@@ -233,3 +233,22 @@ test('cross-site and non-JSON writes are rejected', async () => {
   const cross = await fetch(`${base}/api/demo/clear`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example', Cookie: admin.cookie }, body: '{}' });
   assert.equal(cross.status, 403);
 });
+
+test('staff sharing the team inbox each get their own login; links go to the inbox', async () => {
+  const a = await admin.post('/api/admin/users', { name: 'Meera Joshi', email: 'Admin@umamistudio.in' });
+  const b = await admin.post('/api/admin/users', { name: 'Sanjay Das', email: 'admin@umamistudio.in' });
+  assert.equal(a.status, 201, JSON.stringify(a.body));
+  assert.equal(b.status, 201, JSON.stringify(b.body));
+  assert.equal(a.body.loginId, 'meera.joshi@umami.app');
+  assert.equal(b.body.loginId, 'sanjay.das@umami.app');
+  assert.equal(a.body.sentTo, 'admin@umamistudio.in');
+  assert.ok(get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%'`));
+  const meera = await activate(a.body.inviteLink, 'meeraPass123');
+  assert.equal((await meera.get('/api/auth/me')).body.user.email, 'meera.joshi@umami.app');
+  const login = await new Client().post('/api/auth/login', { login: 'meera.joshi@umami.app', password: 'meeraPass123' });
+  assert.equal(login.status, 200);
+  const id = get('SELECT id FROM users WHERE email=?', 'sanjay.das@umami.app').id;
+  const reset = await admin.post(`/api/admin/users/${id}/reset-password`);
+  assert.equal(reset.body.sentTo, 'admin@umamistudio.in');
+  assert.ok(reset.body.resetLink);
+});

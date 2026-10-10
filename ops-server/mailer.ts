@@ -27,16 +27,18 @@ export async function sendMail(to: string, subject: string, body: string): Promi
   return { sent: status === 'sent', error: status === 'not_configured' ? 'Email is not set up yet' : error };
 }
 
-export function inviteEmail(name: string, link: string) {
+const loginLine = (login?: string) => (login && login.endsWith('@umami.app') ? `Their login ID is ${login}.\n` : '');
+
+export function inviteEmail(name: string, link: string, login?: string) {
   return {
-    subject: 'Set your password for Umami Studio Operations',
-    body: `Hi ${name},\n\nYou have been given access to the Umami Studio operations dashboard.\nSet your password here (the link works once and expires in 48 hours):\n\n${link}\n\nIf you were not expecting this, ignore this email.`,
+    subject: `Set the password for ${name} · Umami Studio Operations`,
+    body: `Hi ${name},\n\nYou have been given access to the Umami Studio operations dashboard.\n${loginLine(login)}Set the password here (the link works once and expires in 48 hours):\n\n${link}\n\nIf you were not expecting this, ignore this email.`,
   };
 }
 
-export function resetEmail(name: string, link: string) {
+export function resetEmail(name: string, link: string, login?: string) {
   return {
-    subject: 'Reset your Umami Studio Operations password',
-    body: `Hi ${name},\n\nAn admin has reset your password for the Umami Studio operations dashboard.\nChoose a new password here (the link works once and expires in 48 hours):\n\n${link}`,
+    subject: `Reset the password for ${name} · Umami Studio Operations`,
+    body: `Hi ${name},\n\nAn admin has reset the password for the Umami Studio operations dashboard.\n${loginLine(login)}Choose a new password here (the link works once and expires in 48 hours):\n\n${link}`,
   };
 }

@@ -7,9 +7,12 @@ import {
 import { sendMail, inviteEmail, resetEmail } from './mailer.ts';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/** A shared team inbox: staff entered with it get their own generated login ID, and their links are emailed there. */
+export const SHARED_INBOX = (process.env.OPS_SHARED_STAFF_EMAIL ?? 'admin@umamistudio.in').trim().toLowerCase();
+const mailTo = (u: Row) => u.notify_email || (u.has_email ? u.email : null);
 
 export const publicUser = (u: Row) => ({
-  id: u.id, name: u.name, email: u.email, hasEmail: !!u.has_email, role: u.role, status: u.status,
+  id: u.id, name: u.name, email: u.email, hasEmail: !!u.has_email, notifyEmail: u.notify_email || null, role: u.role, status: u.status,
   mustChangePassword: !!u.must_change_password, createdAt: u.created_at, lastLoginAt: u.last_login_at, disabledAt: u.disabled_at,
 });
 
@@ -31,19 +34,22 @@ export async function createUser(actor: Me | null, input: { name: unknown; email
   const email = String(input.email ?? '').trim().toLowerCase();
   if (email && !EMAIL.test(email)) throw new HttpError(400, 'That email address does not look right.');
   if (email.endsWith('@umami.app')) throw new HttpError(400, 'Use the person\'s real email, or leave it empty to generate a login ID.');
-  if (email && get('SELECT 1 FROM users WHERE email=?', email)) throw new HttpError(409, 'An account with this email already exists.');
+  const shared = !!email && email === SHARED_INBOX;
+  if (email && !shared && get('SELECT 1 FROM users WHERE email=?', email)) throw new HttpError(409, 'An account with this email already exists.');
   if (get('SELECT 1 FROM users WHERE lower(name)=lower(?) AND status<>\'disabled\'', name)) throw new HttpError(409, `${name} already has an account. Use a different name, e.g. with a surname.`);
 
   if (email) {
+    const login = shared ? generateLoginId(name) : email;
     const { id, token } = tx(() => {
-      const r = run(`INSERT INTO users (name, email, has_email, role, status, created_at, created_by) VALUES (?,?,1,?,'invited',?,?)`, name, email, role, now(), actor?.id ?? null);
+      const r = run(`INSERT INTO users (name, email, has_email, notify_email, role, status, created_at, created_by) VALUES (?,?,?,?,?,'invited',?,?)`,
+        name, login, shared ? 0 : 1, shared ? email : null, role, now(), actor?.id ?? null);
       const id = Number(r.lastInsertRowid);
       return { id, token: issueToken(id, 'invite', actor?.id ?? null) };
     });
     const link = setPasswordLink(token, req);
-    const mail = await sendMail(email, ...Object.values(inviteEmail(name, link)) as [string, string]);
-    logAuthEvent('invited', id, actor?.id ?? null, email);
-    return { user: publicUser(get('SELECT * FROM users WHERE id=?', id)), inviteLink: link, emailSent: mail.sent, emailError: mail.error };
+    const mail = await sendMail(email, ...Object.values(inviteEmail(name, link, login)) as [string, string]);
+    logAuthEvent('invited', id, actor?.id ?? null, shared ? `${login} via ${email}` : email);
+    return { user: publicUser(get('SELECT * FROM users WHERE id=?', id)), ...(shared ? { loginId: login } : {}), inviteLink: link, sentTo: email, emailSent: mail.sent, emailError: mail.error };
   }
 
   const loginId = generateLoginId(name), password = generatePassword();
@@ -62,13 +68,13 @@ function target(id: unknown) {
 export async function resetPassword(actor: Me, id: unknown, req?: Request) {
   const u = target(id);
   if (u.status === 'disabled') throw new HttpError(400, 'Enable this account before resetting its password.');
-  if (u.has_email) {
+  if (mailTo(u)) {
     const token = issueToken(u.id, u.status === 'invited' ? 'invite' : 'reset', actor.id);
     const link = setPasswordLink(token, req);
-    const mail = await sendMail(u.email, ...Object.values((u.status === 'invited' ? inviteEmail : resetEmail)(u.name, link)) as [string, string]);
+    const mail = await sendMail(mailTo(u), ...Object.values((u.status === 'invited' ? inviteEmail : resetEmail)(u.name, link, u.email)) as [string, string]);
     if (u.status === 'active') { run('UPDATE users SET password_hash=NULL WHERE id=?', u.id); revokeSessions(u.id); }
     logAuthEvent('reset_link_issued', u.id, actor.id);
-    return { user: publicUser(get('SELECT * FROM users WHERE id=?', u.id)), resetLink: link, emailSent: mail.sent, emailError: mail.error };
+    return { user: publicUser(get('SELECT * FROM users WHERE id=?', u.id)), ...(u.notify_email ? { loginId: u.email } : {}), resetLink: link, sentTo: mailTo(u), emailSent: mail.sent, emailError: mail.error };
   }
   const password = generatePassword();
   run('UPDATE users SET password_hash=?, must_change_password=1 WHERE id=?', hashPassword(password), u.id);
