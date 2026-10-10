@@ -7,3 +7,4 @@ data/uploads/
 .env
 dist-demo/
 dist-codex/
+data/ops/

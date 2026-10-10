@@ -1,0 +1,9 @@
+{
+  "_note": "First accounts, created when the server starts with an empty database. Replace the placeholder emails with the real ones before the first deploy. Each person gets a single-use set-password link (48 hours), printed in the server log.",
+  "users": [
+    { "name": "Shubham Jain", "email": "admin1@example.com", "role": "admin" },
+    { "name": "Second Admin", "email": "admin2@example.com", "role": "admin" },
+    { "name": "Amit Shah", "email": "staff1@example.com", "role": "staff" },
+    { "name": "Rahul Mehta", "email": "staff2@example.com", "role": "staff" }
+  ]
+}

@@ -18,7 +18,13 @@
     "seed": "tsx server/seed.ts --reset",
     "import": "tsx server/import/cli.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test --test-reporter=spec server/tests/*.test.ts"
+    "test": "node --import tsx --test --test-reporter=spec server/tests/*.test.ts",
+    "ops": "tsx ops-server/index.ts",
+    "ops:dev": "tsx watch ops-server/index.ts",
+    "ops:start": "NODE_ENV=production tsx ops-server/index.ts",
+    "ops:user": "tsx ops-server/cli.ts",
+    "ops:backup": "tsx ops-server/cli.ts backup",
+    "ops:test": "NODE_ENV=test node --import tsx --test --test-reporter=spec ops-server/tests/*.test.ts"
   },
   "dependencies": {
     "express": "^4.22.3",

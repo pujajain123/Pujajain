@@ -1,0 +1,27 @@
+# Render blueprint for the Umami Studio operations dashboard (server mode).
+# The SQLite database and uploaded photos live on the persistent disk mounted at /var/data.
+services:
+  - type: web
+    name: umami-ops
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run ops:start
+    healthCheckPath: /api/health
+    disk:
+      name: umami-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22.12.0"
+      - key: OPS_DATA_DIR
+        value: /var/data
+      - key: APP_URL
+        sync: false          # e.g. https://umami-ops.onrender.com (used in set-password links)
+      - key: RESEND_API_KEY
+        sync: false          # optional: lets the server email invite and reset links
+      - key: MAIL_FROM
+        sync: false          # e.g. "Umami Studio <ops@yourdomain.com>"
+      - key: OPS_DEMO_DATA
+        value: "1"           # set to 0 before first start to skip the sample staff entries
