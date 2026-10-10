@@ -39,6 +39,6 @@ export function inviteEmail(name: string, link: string, login?: string) {
 export function resetEmail(name: string, link: string, login?: string) {
   return {
     subject: `Reset the password for ${name} · Umami Studio Operations`,
-    body: `Hi ${name},\n\nAn admin has reset the password for the Umami Studio operations dashboard.\n${loginLine(login)}Choose a new password here (the link works once and expires in 48 hours):\n\n${link}`,
+    body: `Hi ${name},\n\nA password reset was requested for the Umami Studio operations dashboard.\n${loginLine(login)}Choose a new password here (the link works once and expires in 48 hours):\n\n${link}\n\nIf you did not ask for this, ignore this email; your password stays the same.`,
   };
 }

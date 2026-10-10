@@ -110,3 +110,19 @@ export async function setStatus(actor: Me, id: unknown, enable: boolean) {
   await logAuthEvent(enable ? 'enabled' : 'disabled', u.id, actor.id);
   return userById(u.id);
 }
+
+/**
+ * "Forgot password" from the sign-in screen. Only accounts already in the database (created by the developer or
+ * an admin) are served: the reset link goes to that account's email (or the shared staff inbox for generated login IDs).
+ * The answer is the same whether or not the account exists, so the form cannot be used to discover accounts.
+ */
+export async function forgotPassword(login: unknown, req?: Request) {
+  const email = String(login ?? '').trim().toLowerCase();
+  if (!email || email.length > 200) throw new HttpError(400, 'Enter your email or login ID.');
+  const u = await get(`SELECT * FROM users WHERE email=? AND status<>'disabled'`, email);
+  if (!u || !mailTo(u)) return;
+  const token = await issueToken(u.id, u.status === 'invited' ? 'invite' : 'reset', null);
+  const link = setPasswordLink(token, req);
+  await sendMail(mailTo(u), ...Object.values((u.status === 'invited' ? inviteEmail : resetEmail)(u.name, link, u.email)) as [string, string]);
+  await logAuthEvent('forgot_password', u.id, null);
+}

@@ -6,7 +6,7 @@ import {
   HttpError, loadMe, requireAuth, requireAdmin, createSession, setSessionCookie, verifyPassword, hashPassword,
   checkPasswordStrength, throttle, recordFailure, clearFailures, findToken, consumeToken, revokeSessions, logAuthEvent, COOKIE,
 } from './auth.ts';
-import { createUser, listUsers, resetPassword, setStatus, publicUser } from './accounts.ts';
+import { createUser, listUsers, resetPassword, setStatus, publicUser, forgotPassword } from './accounts.ts';
 import { readState, createOrder, updateOrder, addTransaction, addActivity, putSettings, putTracker, clearDemo, readUpload } from './workspace.ts';
 import { ensureReady, ROOT } from './setup.ts';
 
@@ -61,6 +61,14 @@ export function createApp() {
     await logAuthEvent('login', u.id, u.id);
     setSessionCookie(res, await createSession(u.id));
     res.json({ user: publicUser(u) });
+  }));
+
+  app.post('/api/auth/forgot', wrap(async (req, res) => {
+    const key = `forgot|${req.ip}`;
+    await throttle(key);
+    await recordFailure(key); // counts every request, so the form cannot be used to flood inboxes
+    await forgotPassword(req.body?.login, req);
+    res.json({ ok: true });
   }));
 
   app.post('/api/auth/logout', wrap(async (req, res) => {

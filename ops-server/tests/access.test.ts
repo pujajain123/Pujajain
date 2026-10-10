@@ -254,3 +254,24 @@ test('staff sharing the team inbox each get their own login; links go to the inb
   assert.equal(reset.body.sentTo, 'admin@umamistudio.in');
   assert.ok(reset.body.resetLink);
 });
+
+test('forgot password emails a single-use link only for accounts in the database', async () => {
+  const before = Number((await get('SELECT COUNT(*)::int AS n FROM email_outbox')).n);
+  const unknown = await new Client().post('/api/auth/forgot', { login: 'stranger@example.com' });
+  assert.equal(unknown.status, 200, 'same answer whether or not the account exists');
+  assert.equal(Number((await get('SELECT COUNT(*)::int AS n FROM email_outbox')).n), before, 'no email for unknown addresses');
+
+  const ok = await new Client().post('/api/auth/forgot', { login: 'NEHA@example.com' });
+  assert.equal(ok.status, 200);
+  const mail = await get(`SELECT body FROM email_outbox WHERE to_addr='neha@example.com' ORDER BY id DESC LIMIT 1`);
+  assert.match(mail.body, /password reset was requested/);
+  const link = /http\S+set-password\?token=\S+/.exec(mail.body)![0];
+  assert.equal((await new Client().post('/api/auth/login', { login: 'neha@example.com', password: 'nehaPass123' })).status, 200, 'old password works until reset');
+  await activate(link, 'nehaNew12345');
+  assert.equal((await new Client().post('/api/auth/login', { login: 'neha@example.com', password: 'nehaPass123' })).status, 401);
+  assert.equal((await new Client().post('/api/auth/login', { login: 'neha@example.com', password: 'nehaNew12345' })).status, 200);
+  assert.equal((await new Client().post('/api/auth/set-password', { token: tokenOf(link), password: 'again12345' })).status, 410);
+
+  await new Client().post('/api/auth/forgot', { login: 'meera.joshi@umami.app' });
+  assert.ok(await get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%' AND body LIKE '%reset was requested%'`), 'generated login IDs: link goes to the staff inbox');
+});

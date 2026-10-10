@@ -41,8 +41,21 @@
       <form class="auth-form" autocomplete="on"><label class="field"><span>Email or login ID</span><input name="login" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
       <div class="auth-error" role="alert" hidden></div><button class="primary-button auth-submit" type="submit">Sign in</button></form>
-      <p class="auth-hint">Forgot your password? Ask an admin to reset it.</p>`);
+      <button type="button" class="text-button auth-link" data-forgot>Forgot password?</button>`);
+    root.querySelector('[data-forgot]').addEventListener('click', () => showForgot(root.querySelector('[name=login]').value));
     bindForm(root, async d => { await api('/api/auth/login', d); location.replace('/'); });
+  }
+
+  function showForgot(prefill = '') {
+    const root = screen(`<h1>Forgot password</h1><p class="auth-sub">Enter the email or login ID of your account. We'll email you a link to set a new password.</p>
+      <form class="auth-form"><label class="field"><span>Email or login ID</span><input name="login" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(prefill)}" required></label>
+      <div class="auth-error" role="alert" hidden></div><button class="primary-button auth-submit" type="submit">Send reset link</button></form>
+      <button type="button" class="text-button auth-link" data-back>Back to sign in</button>`);
+    root.querySelector('[data-back]').addEventListener('click', () => showLogin());
+    bindForm(root, async d => {
+      await api('/api/auth/forgot', { login: d.login });
+      showLogin('If an account exists for that email or login ID, a link to set a new password has been sent to its email. The link works once and expires in 48 hours. Staff login IDs ending in @umami.app: the link goes to the staff inbox.');
+    });
   }
 
   async function showSetPassword() {
