@@ -275,3 +275,20 @@ test('forgot password emails a single-use link only for accounts in the database
   await new Client().post('/api/auth/forgot', { login: 'meera.joshi@umami.app' });
   assert.ok(await get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%' AND body LIKE '%reset was requested%'`), 'generated login IDs: link goes to the staff inbox');
 });
+
+test('developer temporary passwords: applied once to never-used first accounts, then must be changed', async () => {
+  const { applyTemporaryPasswords } = await import('../setup.ts');
+  const { hashPassword } = await import('../auth.ts');
+  const r = await admin.post('/api/admin/users', { name: 'Temp Person', email: 'temp@example.com' });
+  const file = path.join(dir, 'initial-users.json');
+  fs.writeFileSync(file, JSON.stringify({ users: [{ name: 'Temp Person', email: 'temp@example.com', role: 'staff', temporaryPasswordHash: hashPassword('TempPass2468') }] }));
+  assert.equal(await applyTemporaryPasswords(file), 1);
+  assert.equal(await applyTemporaryPasswords(file), 0, 'not applied twice');
+  const c = new Client();
+  assert.equal((await c.post('/api/auth/login', { login: 'temp@example.com', password: 'TempPass2468' })).status, 200);
+  assert.equal((await c.get('/api/state')).body.code, 'password_change_required');
+  assert.equal((await c.post('/api/auth/change-password', { current: 'TempPass2468', password: 'myOwnPass123' })).status, 200);
+  assert.equal((await c.get('/api/state')).status, 200);
+  assert.equal(await applyTemporaryPasswords(file), 0, 'never overwrites a password the person chose');
+  assert.ok(r.body.inviteLink);
+});

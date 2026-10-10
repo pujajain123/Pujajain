@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { get, tx, openDb } from './db.ts';
+import { get, run, tx, openDb } from './db.ts';
 import { seedWorkspace } from './workspace.ts';
 import { createUser } from './accounts.ts';
 import type { Role } from './auth.ts';
@@ -16,17 +16,19 @@ export async function seedWorkspaceFromFiles() {
 }
 
 type Seeded = { name: string; role: Role; login: string; link: string; password?: string };
+type InitialUser = { name: string; email?: string; login?: string; role: Role; temporaryPasswordHash?: string };
+const readInitialUsers = (file: string): InitialUser[] => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).users : []);
 
 /** Creates the developer-provided first accounts once (database has no users yet) and returns how each signs in. */
 export async function seedInitialUsers(file = path.join(ROOT, 'config/initial-users.json')): Promise<Seeded[]> {
-  if (!fs.existsSync(file)) return [];
-  const { users } = JSON.parse(fs.readFileSync(file, 'utf8')) as { users: { name: string; email?: string; role: Role }[] };
+  const users = readInitialUsers(file);
+  if (!users.length) return [];
   return tx(async () => {
     await get('SELECT pg_advisory_xact_lock(727003)');
     if (await get('SELECT 1 FROM users LIMIT 1')) return [];
     const out: Seeded[] = [];
     for (const u of users) {
-      const r = await createUser(null, u);
+      const r = await createUser(null, { name: u.name, email: u.email, role: u.role });
       out.push('inviteLink' in r
         ? { name: u.name, role: u.role, login: r.user.email, link: r.inviteLink }
         : { name: u.name, role: u.role, login: r.loginId, password: r.password, link: r.loginLink });
@@ -47,6 +49,23 @@ export function printSeeded(invited: Seeded[]) {
   console.log('');
 }
 
+/**
+ * Gives first accounts their developer-set temporary password (stored here only as a hash). Applied only while an
+ * account has never set a password, and always with "must change at first sign-in".
+ */
+export async function applyTemporaryPasswords(file = path.join(ROOT, 'config/initial-users.json')) {
+  let applied = 0;
+  for (const u of readInitialUsers(file)) {
+    if (!u.temporaryPasswordHash?.startsWith('scrypt:')) continue;
+    const login = (u.login || u.email || '').toLowerCase();
+    const r = await run(`UPDATE users SET password_hash=?, must_change_password=1, status='active'
+      WHERE email=? AND status='invited' AND password_hash IS NULL`, u.temporaryPasswordHash, login);
+    applied += r.changes;
+  }
+  if (applied) console.log(`Temporary passwords applied to ${applied} first account(s); each must choose their own at first sign-in.`);
+  return applied;
+}
+
 /** Connect, migrate and seed. Safe to call on every start and from every server instance. */
 let ready: Promise<void> | null = null;
 export function ensureReady() {
@@ -55,6 +74,7 @@ export function ensureReady() {
       await openDb();
       if (await seedWorkspaceFromFiles()) console.log('Workspace loaded from the exported snapshot.');
       printSeeded(await seedInitialUsers());
+      await applyTemporaryPasswords();
     })();
     ready.catch(err => { console.error('Start-up failed:', err); ready = null; });
   }

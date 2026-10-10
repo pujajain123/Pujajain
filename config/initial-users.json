@@ -1,9 +1,31 @@
 {
-  "_note": "First accounts, created when the server starts with an empty database. Admins log in with their own email and get a single-use set-password link (48 hours). Staff using the shared staff inbox get their own generated name@umami.app login ID; their set-password links are emailed to that inbox. All links are also printed in the server log (Render: Logs tab).",
+  "_note": "First accounts, created when the server starts with an empty database. temporaryPasswordHash (scrypt, never the password itself) gives an account a temporary password that must be changed at first sign-in; it is applied only to accounts that have never set a password. Admins log in with their own email; staff using the shared staff inbox get their own generated login ID, and their reset links go to that inbox.",
   "users": [
-    { "name": "Khushboo", "email": "khushboo@umamistudio.in", "role": "admin" },
-    { "name": "Bhavya", "email": "bhavya@umamistudio.in", "role": "admin" },
-    { "name": "Amit Shah", "email": "admin@umamistudio.in", "role": "staff" },
-    { "name": "Rahul Mehta", "email": "admin@umamistudio.in", "role": "staff" }
+    {
+      "name": "Khushboo",
+      "email": "khushboo@umamistudio.in",
+      "role": "admin",
+      "temporaryPasswordHash": "scrypt:9243ad25403314124fede79378ff3879:6b169b3c30090d7ebc162b03bd03d4eba8bb034564963931d7f5096b3e62cffd5b4af29ab5cbec119e38a99c92866a9ddccbb6a19ee0c7fbc2d1117d84546bc7"
+    },
+    {
+      "name": "Bhavya",
+      "email": "bhavya@umamistudio.in",
+      "role": "admin",
+      "temporaryPasswordHash": "scrypt:dae497dae6603fc038c3e60668a2e8b0:f81cbe19059608da8c43fb853629e509571c9324c4a70302fbc4a2f0355dcc75b7f3914d3b7ee3473c3ce3549a645fba0cf6b44c6f6f1f866df08b174b20e926"
+    },
+    {
+      "name": "Amit Shah",
+      "email": "admin@umamistudio.in",
+      "login": "amit.shah@umami.app",
+      "role": "staff",
+      "temporaryPasswordHash": "scrypt:400896f433800ebd08313ba40ffc4c9d:1d60a01d03453cfac961356b40683b9b4ce5faf084152da695a8f5165d02d16a267676315232171b89667b5bdbd217917972e4375c38cb147546e64e4a7ab423"
+    },
+    {
+      "name": "Rahul Mehta",
+      "email": "admin@umamistudio.in",
+      "login": "rahul.mehta@umami.app",
+      "role": "staff",
+      "temporaryPasswordHash": "scrypt:271430de517886bc94e2bf3c8b7ac498:6c36a8fa7cc4c4ea3c475d030613bf95ea9e8df99a1d13ba5af3a07a51c62a3693df7404e7c63f356f1fed57a6304fae6ed95f9ec6048936c1fa25bd380cc6fe"
+    }
   ]
 }
