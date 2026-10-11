@@ -288,6 +288,40 @@
     toast(db.monthlyReport.enabled ? `Monthly report reminder set for day ${db.monthlyReport.day}.` : 'Monthly report reminder turned off.');
   });
 
+  /* ---------- New orders also appear in Master production (one tracker row per product line) ---------- */
+  const ddmmyy = iso => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : '');
+  function trackerRowsFor(o) {
+    const lines = o.items?.length ? o.items : [{ sku: '', name: o.product, qty: o.qty }];
+    return lines.map(it => {
+      const fabric = num(it.fabricRequired) > 0 || !!it.fabricCode, rope = num(it.ropeRequired) > 0 || !!it.ropeCode, tile = !!it.tableTop;
+      return {
+        orderDate: ddmmyy(o.orderDate), commencement: '', orderNo: o.id, client: o.client, sku: it.sku || '', product: it.name || o.product, qty: num(it.qty) || 1, deadline: ddmmyy(o.deadline),
+        fabricRequired: fabric ? 'Yes' : 'No', fabricStatus: fabric ? 'Pending' : 'Not Required',
+        ropeRequired: rope ? 'Yes' : 'No', ropeStatus: rope ? 'Pending' : 'Not Required',
+        foamRequired: fabric ? 'Yes' : 'No', foamStatus: fabric ? 'Pending' : 'Not Required',
+        tileRequired: tile ? 'Yes' : 'No', tileStatus: tile ? 'Pending' : 'Not Required',
+        metalRequired: 'Yes', metalStatus: 'Pending',
+        structureStatus: 'Not Started', structureQca: '', powderStatus: 'Not Started', powderQca: '',
+        weavingStatus: rope ? 'Not Started' : 'Not Required', weavingQca: '',
+        upholsteryStatus: fabric ? 'Not Started' : 'Not Required', upholsteryQca: '',
+        tileProductionStatus: tile ? 'Not Started' : 'Not Required',
+        currentStatus: 'Waiting for Material', procurementDelay: 'On Track', deadlineDelay: '', completion: 0, notes: '', rework: '',
+      };
+    });
+  }
+  const baseSubmitOrder = submitOrder;
+  submitOrder = function (form) {
+    const before = new Set(db.orders.map(o => o.id));
+    try { baseSubmitOrder(form); }
+    catch (err) { console.error(err); toast('The order could not be saved: ' + (err.message || 'unknown error')); return; }
+    const created = db.orders.find(o => !before.has(o.id));
+    if (!created || trackerRows.some(r => r.orderNo === created.id)) return;
+    trackerRows.unshift(...trackerRowsFor(created));
+    localStorage.setItem('umami-production-tracker-v1', JSON.stringify(trackerRows));
+    render();
+  };
+  window.submitOrder = submitOrder;
+
   // Download the order report through the viewer's download prompt where needed.
   exportCSV = function () {
     const rows = [['Order ID', 'Client', 'Product', 'Quantity', 'Stage', 'Deadline', 'Progress', 'Created by', 'Last updated by'],
