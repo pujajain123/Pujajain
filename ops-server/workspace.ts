@@ -151,7 +151,7 @@ export async function updateOrder(me: Me, id: string, input: Order, baseVersion:
 
 function mergeStaffChanges(me: Me, stored: Order, incoming: Order): Order {
   const next = clone(stored);
-  const ignore = new Set(['processes', 'items', 'photoData', 'updatedBy', 'updatedAt', 'stage', '_version']);
+  const ignore = new Set(['processes', 'items', 'photoData', 'updatedBy', 'updatedAt', 'stage', 'dispatch', 'address', '_version']);
   for (const key of new Set([...Object.keys(stored), ...Object.keys(incoming)])) {
     if (!ignore.has(key) && !same(stored[key], incoming[key])) throw new HttpError(403, `Staff cannot change the order's ${key}.`);
   }
@@ -165,6 +165,17 @@ function mergeStaffChanges(me: Me, stored: Order, incoming: Order): Order {
     next.processes[idx] = { ...p, completed: Math.max(0, Math.min(num(stored.qty), num(p.completed))) };
   }
   if (incoming.photoData !== undefined) next.photoData = incoming.photoData;
+  // Dispatch: staff may record or update the dispatch of an order that is ready for it, and complete it afterwards.
+  if (!same(stored.dispatch, incoming.dispatch) || stored.stage !== incoming.stage || !same(stored.address, incoming.address)) {
+    const dispatchStages = ['Ready for dispatch', 'Dispatched', 'Completed'];
+    const target = incoming.stage ?? stored.stage;
+    if (!dispatchStages.includes(String(stored.stage)) || !dispatchStages.includes(String(target)) || (target === 'Ready for dispatch' && stored.stage !== 'Ready for dispatch')) {
+      if (stored.stage !== incoming.stage || !same(stored.dispatch, incoming.dispatch)) throw new HttpError(403, 'Staff can only record dispatch for orders that are ready for dispatch.');
+    }
+    if (incoming.dispatch && typeof incoming.dispatch === 'object') next.dispatch = incoming.dispatch;
+    if (incoming.address !== undefined) next.address = String(incoming.address).slice(0, 1000);
+    next.stage = target;
+  }
   const before = stored.items || [], after = incoming.items || [];
   if (before.length !== after.length) throw new HttpError(403, 'Staff cannot add or remove product lines.');
   next.items = before.map((it, i) => {

@@ -15,7 +15,7 @@
     { id: 'manish', name: 'Manish', email: STAFF_INBOX, role: 'staff' },
   ];
   const SESSION_KEY = 'umami-session-v1', LOCAL_ACCOUNTS = 'umami-accounts-v1';
-  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'reports', 'guide'];
+  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'dispatch', 'reports', 'guide'];
   const LOGO = document.querySelector('.brand-logo')?.getAttribute('src') || '';
   const norm = s => String(s || '').trim().toLowerCase();
   const slug = s => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'staff';

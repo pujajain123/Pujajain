@@ -292,3 +292,19 @@ test('developer temporary passwords: applied once to never-used first accounts, 
   assert.equal(await applyTemporaryPasswords(file), 0, 'never overwrites a password the person chose');
   assert.ok(r.body.inviteLink);
 });
+
+test('staff can record a dispatch for a ready order, but not move other stages', async () => {
+  const mine = (await amit.get('/api/state')).body.db.orders[0];
+  // Admin moves the order to ready for dispatch.
+  const full = (await admin.get('/api/state')).body.db.orders.find((o: { id: string }) => o.id === mine.id);
+  const ready = await admin.put(`/api/orders/${full.id}`, { order: { ...full, stage: 'Ready for dispatch' }, baseVersion: full._version });
+  assert.equal(ready.status, 200);
+  const o = (await amit.get('/api/state')).body.db.orders.find((x: { id: string }) => x.id === mine.id);
+  const dispatch = { date: '2026-10-12', person: 'Amit Shah', carrier: 'VRL', tracking: 'T1', quantity: o.qty, notes: '', address: '12 MG Road, Bengaluru' };
+  const r = await amit.put(`/api/orders/${o.id}`, { order: { ...o, stage: 'Dispatched', dispatch, address: dispatch.address }, baseVersion: o._version });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.order.stage, 'Dispatched');
+  assert.equal(r.body.order.dispatch.address, '12 MG Road, Bengaluru');
+  const back = await amit.put(`/api/orders/${o.id}`, { order: { ...r.body.order, stage: 'In production' }, baseVersion: r.body.order._version });
+  assert.equal(back.status, 403);
+});

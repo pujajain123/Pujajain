@@ -5,7 +5,7 @@
   const me = window.UMAMI_ME;
   const isAdmin = me.role === 'admin';
   const KEYS = { ops: 'umami-ops-v1', tracker: 'umami-production-tracker-v1', rope: 'umami-rope-inventory-v1' };
-  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'reports', 'guide'];
+  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'dispatch', 'reports', 'guide'];
   const RESERVED = new Set(['orders', 'inventory', 'transactions', 'activity', 'role']);
   const rawSetItem = Storage.prototype.setItem;
   let revision = window.UMAMI_SERVER.revision;
