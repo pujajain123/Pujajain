@@ -305,3 +305,10 @@ body.auth-mode .app-shell{display:none}
 .success-close:hover{background:#ffffff80}
 @keyframes slideDown{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
 @media (max-width:700px){.success-bar{padding:10px 14px;flex-wrap:wrap}}
+
+/* Order form: assign jobs; inventory: edited entries */
+.assign-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.assign-grid .field{display:grid;gap:4px;font-size:12px;font-weight:600}
+@media (max-width:700px){.assign-grid{grid-template-columns:1fr}}
+.edited-tag{display:block;margin-top:3px;color:var(--blue);font-size:10px;font-weight:700;letter-spacing:.04em}
+.inventory-category-card [data-stock-adjust]{align-self:flex-start;margin:6px 0 0}

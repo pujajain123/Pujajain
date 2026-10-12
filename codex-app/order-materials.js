@@ -45,6 +45,11 @@
     const codes = [...new Set(db.orders.flatMap(o => (o.items || []).map(it => it.fabricCode)).filter(Boolean))].sort();
     form?.insertAdjacentHTML('beforeend', `<datalist id="fabric-codes">${codes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>`);
     form?.querySelectorAll('input[name=lineFabricCode]').forEach(input => input.setAttribute('list', 'fabric-codes'));
+    // Who does each job. Staff creating an order are assigned by default, so the order shows in their work.
+    const people = [...new Set([...PEOPLE, ...(db.role === 'Staff' && window.staffMember ? [window.staffMember] : [])])];
+    const pick = (name, i) => (db.role === 'Staff' && window.staffMember ? window.staffMember : PEOPLE[i % PEOPLE.length]);
+    form?.querySelector('[name=firstProcess]')?.closest('.field')?.insertAdjacentHTML('beforebegin', `<div class="field full assign-jobs"><label>Assign jobs</label><div class="assign-grid">${PROCESSES.map((name, i) => `<label class="field"><span>${name}</span><select name="assign-${i}">${people.map(p => `<option ${p === pick(name, i) ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>`).join('')}</div></div>`);
+    form?.querySelectorAll('[name=rope],[name=fabric]').forEach(input => { if (input.type !== 'hidden') input.closest('.field')?.remove(); });
     const lines = form?.querySelector('[data-extra-order-lines]');
     lines?.insertAdjacentHTML('afterend', '<div class="info-banner order-stock-note">Rope, fabric and powder colour entered for each product are taken out of inventory when the order is created and shown on its job sheets. Rope is matched to the rope stock by its size / code and dori colour.</div>');
   };
@@ -82,9 +87,11 @@
   submitOrder = function (form) {
     const before = new Set(db.orders.map(o => o.id));
     const powder = [...form.querySelectorAll('[data-order-line]')].map(row => num(row.querySelector('[name=linePowderKg]')?.value));
+    const assigned = PROCESSES.map((_, i) => form.querySelector(`[name=assign-${i}]`)?.value);
     baseSubmitOrder(form);
     const o = db.orders.find(x => !before.has(x.id));
     if (!o) return;
+    o.processes.forEach((p, i) => { if (assigned[i]) p.assigned = assigned[i]; });
     (o.items || []).forEach((it, i) => { it.powderKg = powder[i] || 0; });
     addProductionSteps(o);
     issueMaterials(o);
@@ -183,8 +190,12 @@
   }
 
   /* ---------- Show issued materials on job sheets and the order ---------- */
-  const issuedTable = (rows, note) => `<section class="panel materials-issued"><div class="panel-header"><div><h2>Materials issued from inventory</h2><p>${note}</p></div></div>
-    ${rows.map(x => `<div class="issued-row"><div><strong>${esc(x.material)}</strong><small>${esc(x.detail)}</small>${x.short ? '<small class="stock-short">Stock short: check inventory</small>' : ''}</div><div class="issued-qty"><strong>−${fmt(x.qty)} ${x.unit}</strong><small>${esc(x.tx)}</small></div></div>`).join('')}</section>`;
+  // Follow edits: an issued entry may have been corrected in Inventory since the order was created.
+  const latest = id => { let t = db.transactions.find(x => x.id === id); for (let i = 0; t?.replacedBy && i < 20; i++) t = db.transactions.find(x => x.id === t.replacedBy) || t; return t; };
+  const current = x => { const t = latest(x.tx); return t && t.id !== x.tx ? { ...x, qty: num(t.qty), tx: t.id, edited: true } : x; };
+  const issuedTableRaw = (rows, note) => `<section class="panel materials-issued"><div class="panel-header"><div><h2>Materials issued from inventory</h2><p>${note}</p></div></div>
+    ${rows.map(x => `<div class="issued-row"><div><strong>${esc(x.material)}</strong><small>${esc(x.detail)}</small>${x.short ? '<small class="stock-short">Stock short: check inventory</small>' : ''}</div><div class="issued-qty"><strong>−${fmt(x.qty)} ${x.unit}</strong><small>${esc(x.tx)}${x.edited ? ' · edited' : ''}</small></div></div>`).join('')}</section>`;
+  const issuedTable = (rows, note) => issuedTableRaw(rows.map(current), note);
 
   const baseOpenJob = openJob;
   openJob = function (id) {

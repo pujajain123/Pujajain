@@ -96,7 +96,6 @@
         if (before === json) continue;
         if (json.includes('data:image/')) await shrinkPhotos(o);
         if (before === undefined) {
-          if (!isAdmin) continue;
           const { order } = await request('POST', '/api/orders', { order: o });
           replaceInPlace(o, order);
         } else {

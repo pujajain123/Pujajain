@@ -52,18 +52,23 @@ const orderRows = () => all('SELECT id, data, version FROM orders ORDER BY creat
 const parseOrder = (r: Row): Order => ({ ...JSON.parse(r.data), _version: r.version });
 
 export const isAssigned = (o: Order, name: string) => o.processes?.some(p => p.assigned === name);
+/** Staff see and work on orders where they have a job, and orders they created. */
+export const canAccess = (o: Order, name: string) => isAssigned(o, name) || o.createdBy === name;
 const staffView = (o: Order, name: string): Order => ({ ...o, processes: o.processes.filter(p => p.assigned === name) });
 
 export async function readState(me: Me) {
   const admin = isAdmin(me);
   const orders = (await orderRows()).map(parseOrder);
-  const visible = admin ? orders : orders.filter(o => isAssigned(o, me.name)).map(o => staffView(o, me.name));
+  const visible = admin ? orders : orders.filter(o => canAccess(o, me.name)).map(o => staffView(o, me.name));
   const ids = new Set(visible.map(o => o.id));
   const jobPrefixes = visible.map(o => `JOB-${o.id.slice(3)}-`);
   const ownEntity = (e: string) => ids.has(e) || jobPrefixes.some(p => e.startsWith(p));
 
   const transactions = (await all('SELECT data, user_id FROM transactions ORDER BY seq DESC')).map(r => ({ row: r, t: JSON.parse(r.data) }))
     .filter(({ row, t }) => admin || row.user_id === me.id || ids.has(t.order)).map(({ t }) => t);
+  // An edited entry stays in the ledger, marked with the entry that replaced it.
+  const replacedBy = new Map(transactions.filter(t => t.replaces).map(t => [t.replaces, t.id]));
+  for (const t of transactions) if (replacedBy.has(t.id)) t.replacedBy = replacedBy.get(t.id);
   const activity = (await all('SELECT time, actor, entity, text, user_id, demo FROM activity ORDER BY time DESC, seq DESC LIMIT 2000'))
     .filter(a => admin || a.user_id === me.id || a.actor === me.name || ownEntity(a.entity))
     .map(a => ({ time: a.time, actor: a.actor, entity: a.entity, text: a.text, ...(a.demo ? { demo: true } : {}) }));
@@ -103,9 +108,35 @@ async function saveOrder(o: Order, actor: string, version: number) {
   await run('UPDATE orders SET data=?, version=?, updated_at=?, updated_by=? WHERE id=?', JSON.stringify(data), version, now(), actor, o.id);
 }
 
+const ddmmyy = (iso: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? `${String(iso).slice(8, 10)}/${String(iso).slice(5, 7)}/${String(iso).slice(2, 4)}` : '');
+/** One Master production row per product line, with material status from what was issued on creation. */
+export function trackerRowsFor(o: Order): Row[] {
+  const issued: Row[] = Array.isArray(o.materialsIssued) ? o.materialsIssued as Row[] : [];
+  const has = (m: string) => issued.some(x => x.material === m), short = (m: string) => issued.some(x => x.material === m && x.short);
+  const anyShort = issued.some(x => x.short);
+  const lines: Row[] = o.items?.length ? o.items : [{ sku: '', name: o.product, qty: o.qty }];
+  return lines.map(it => {
+    const fabric = num(it.fabricRequired) > 0 || !!it.fabricCode, rope = num(it.ropeRequired) > 0 || !!it.ropeCode, tile = !!it.tableTop;
+    return {
+      orderDate: ddmmyy(o.orderDate), commencement: '', orderNo: o.id, client: o.client, sku: it.sku || '', product: it.name || o.product, qty: num(it.qty) || 1, deadline: ddmmyy(o.deadline),
+      fabricRequired: fabric ? 'Yes' : 'No', fabricStatus: !fabric ? 'Not Required' : has('Fabric') && !short('Fabric') ? 'Received' : 'Pending',
+      ropeRequired: rope ? 'Yes' : 'No', ropeStatus: !rope ? 'Not Required' : has('Rope') && !short('Rope') ? 'Received' : 'Pending',
+      foamRequired: fabric ? 'Yes' : 'No', foamStatus: fabric ? 'Pending' : 'Not Required',
+      tileRequired: tile ? 'Yes' : 'No', tileStatus: tile ? 'Pending' : 'Not Required',
+      metalRequired: 'Yes', metalStatus: 'Pending',
+      structureStatus: 'Not Started', structureQca: '', powderStatus: 'Not Started', powderQca: '',
+      weavingStatus: rope ? 'Not Started' : 'Not Required', weavingQca: '',
+      upholsteryStatus: fabric ? 'Not Started' : 'Not Required', upholsteryQca: '',
+      tileProductionStatus: tile ? 'Not Started' : 'Not Required',
+      currentStatus: issued.length && !anyShort ? 'In Production' : 'Waiting for Material',
+      procurementDelay: anyShort ? 'Material Order Delay' : 'On Track', deadlineDelay: '', completion: 0, notes: '', rework: '',
+    };
+  });
+}
+
 export async function createOrder(me: Me, input: Order) {
-  if (!isAdmin(me)) throw new HttpError(403, 'Only admins can create orders.');
   validateOrder(input);
+  if (!/^UM-\d{3,6}$/.test(input.id)) throw new HttpError(400, 'Order numbers look like UM-1049.');
   const o = await extractImages(clone(input));
   delete (o as Row)._version;
   o.createdBy = me.name;
@@ -113,6 +144,10 @@ export async function createOrder(me: Me, input: Order) {
   return tx(async () => {
     const r = await run('INSERT INTO orders (id, data, version, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?) ON CONFLICT (id) DO NOTHING', o.id, JSON.stringify(o), 1, now(), now(), me.name);
     if (r.changes !== 1) throw new HttpError(409, `Order ${o.id} already exists.`);
+    // Master production rows are built here too, so they exist whoever created the order.
+    const locked = await get(`SELECT value FROM kv WHERE key='tracker' FOR UPDATE`);
+    const tracker: Row[] = locked ? JSON.parse(locked.value) : [];
+    if (!tracker.some(r => r.orderNo === o.id)) await kvSet('tracker', [...trackerRowsFor(o), ...tracker]);
     await bumpRevision();
     return { ...o, _version: 1 };
   });
@@ -131,7 +166,7 @@ export async function updateOrder(me: Me, id: string, input: Order, baseVersion:
     const row = await get('SELECT data, version FROM orders WHERE id=? FOR UPDATE', id);
     if (!row) throw new HttpError(404, 'Order not found.');
     const stored: Order = JSON.parse(row.data);
-    if (!isAdmin(me) && !isAssigned(stored, me.name)) throw new HttpError(404, 'Order not found.');
+    if (!isAdmin(me) && !canAccess(stored, me.name)) throw new HttpError(404, 'Order not found.');
     if (Number(baseVersion) !== row.version) throw new HttpError(409, 'This order was changed by someone else. The latest version has been loaded.', 'conflict');
     let next: Order;
     if (isAdmin(me)) {
@@ -197,11 +232,11 @@ export async function addTransaction(me: Me, input: Row) {
   const material = String(input?.material || ''), type = String(input?.type || 'Incoming'), qty = num(input?.qty);
   if (!(CATEGORIES as readonly string[]).includes(material)) throw new HttpError(400, 'Inventory category must be Rope, Fabric or Powder Color.');
   if (!TX_TYPES.includes(type)) throw new HttpError(400, 'Unknown transaction type.');
-  if (!(qty > 0) || qty > 1e7) throw new HttpError(400, 'Quantity must be more than zero.');
+  if (type === 'Adjustment' ? !(qty !== 0 && Math.abs(qty) <= 1e7) : !(qty > 0 && qty <= 1e7)) throw new HttpError(400, 'Quantity must be more than zero.');
   const order = input.order && input.order !== '—' ? String(input.order) : '—';
   if (order !== '—') {
     const o = await get('SELECT data FROM orders WHERE id=?', order);
-    if (!o || (!isAdmin(me) && !isAssigned(JSON.parse(o.data), me.name))) throw new HttpError(403, 'You can only link entries to your own orders.');
+    if (!o || (!isAdmin(me) && !canAccess(JSON.parse(o.data), me.name))) throw new HttpError(403, 'You can only link entries to your own orders.');
   }
   const str = (v: unknown, max = 120) => String(v ?? '').trim().slice(0, max);
   const t = {
@@ -217,6 +252,17 @@ export async function addTransaction(me: Me, input: Row) {
   if (material === 'Powder Color' && type === 'Incoming' && !t.colorName) throw new HttpError(400, 'Powder Color entries need a colour name.');
   return tx(async () => {
     if (await get('SELECT 1 FROM transactions WHERE id=?', t.id)) t.id = `TX-${Date.now()}-${crypto.randomInt(1000)}`;
+    // Editing an entry: the original stays in the ledger; its effect is reversed and the corrected entry posted.
+    if (input.replaces) {
+      const orig = await get('SELECT data, user_id FROM transactions WHERE id=? FOR UPDATE', String(input.replaces));
+      if (!orig) throw new HttpError(404, 'The entry being edited was not found.');
+      const o = JSON.parse(orig.data);
+      if (!isAdmin(me) && orig.user_id !== me.id && o.enteredBy !== me.name) throw new HttpError(403, 'Staff can only edit entries they made.');
+      if (await get(`SELECT 1 FROM transactions WHERE data LIKE ?`, `%"replaces":"${String(input.replaces).replace(/[%_"]/g, '')}"%`)) throw new HttpError(409, 'This entry was already edited. Reload to see the latest version.');
+      if (o.material !== material) throw new HttpError(400, 'An edit cannot change the inventory category.');
+      await applyTransaction(o, -1);
+      Object.assign(t, { replaces: o.id, order: o.order, job: o.job, editedBy: me.name, editedAt: now(), reason: str(input.reason, 300) });
+    }
     await applyTransaction(t);
     await run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,?,?)', t.id, JSON.stringify(t), me.id, 0, now());
     await bumpRevision();
@@ -225,7 +271,7 @@ export async function addTransaction(me: Me, input: Row) {
 }
 
 /** Posts a ledger movement: rope purchases/issues go to the rope workbook, everything else to the category totals. */
-export async function applyTransaction(t: Row) {
+export async function applyTransaction(t: Row, sign: 1 | -1 = 1) {
   if (t.material === 'Rope' && t.sku && (t.type === 'Incoming' || t.type === 'Outward')) {
     const locked = await get(`SELECT value FROM kv WHERE key='rope' FOR UPDATE`);
     const rope = (locked ? JSON.parse(locked.value) : null) || { stock_master: [], purchase_log: [], outward_log: [] };
@@ -236,23 +282,25 @@ export async function applyTransaction(t: Row) {
     const purchased = num(row['Total Purchased (m)']), outward = num(row['Total Outward (m)']);
     const current = row['Current Balance (m)'] === '' || row['Current Balance (m)'] == null ? num(row['Opening Stock (m)']) + purchased - outward : num(row['Current Balance (m)']);
     const date = new Date(`${t.date}T12:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const q = sign * t.qty, note = sign < 0 ? 'Correction: entry edited' : '';
     if (t.type === 'Incoming') {
-      row['Total Purchased (m)'] = String(purchased + t.qty);
-      row['Current Balance (m)'] = String(current + t.qty);
-      (rope.purchase_log ||= []).unshift({ Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Purchased (m)': String(t.qty), Supplier: '', 'Invoice/Bill No.': '', 'Rate (per m)': '', Remarks: t.notes || `Entered by ${t.enteredBy}` });
+      row['Total Purchased (m)'] = String(purchased + q);
+      row['Current Balance (m)'] = String(current + q);
+      if (sign > 0) (rope.purchase_log ||= []).unshift({ Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Purchased (m)': String(t.qty), Supplier: '', 'Invoice/Bill No.': '', 'Rate (per m)': '', Remarks: t.notes || `Entered by ${t.enteredBy}` });
     } else {
-      row['Total Outward (m)'] = String(outward + t.qty);
-      row['Current Balance (m)'] = String(current - t.qty);
-      (rope.outward_log ||= []).unshift({ Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Out (m)': String(t.qty), 'Issued To': t.enteredBy, 'Used For (Job/Product)': t.order, Remarks: t.notes || '' });
+      row['Total Outward (m)'] = String(outward + q);
+      row['Current Balance (m)'] = String(current - q);
+      if (sign > 0 || note) (rope.outward_log ||= []).unshift(sign < 0 ? { Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Out (m)': String(q), 'Issued To': t.enteredBy, 'Used For (Job/Product)': t.order, Remarks: note } : { Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Out (m)': String(t.qty), 'Issued To': t.enteredBy, 'Used For (Job/Product)': t.order, Remarks: t.notes || '' });
     }
     await kvSet('rope', rope);
     return;
   }
   const inv = await loadInventory(t.material, true) || { name: t.material, unit: t.unit, opening: 0, incoming: 0, adjustments: 0, reserved: 0, consumed: 0, wastage: 0, reorder: 0 };
-  if (t.type === 'Incoming') inv.incoming += t.qty;
-  else if (t.type === 'Outward' || t.type === 'Consumption') inv.consumed += t.qty;
-  else if (t.type === 'Wastage') inv.wastage += t.qty;
-  else inv.adjustments += t.qty;
+  const q = sign * t.qty;
+  if (t.type === 'Incoming') inv.incoming += q;
+  else if (t.type === 'Outward' || t.type === 'Consumption') inv.consumed += q;
+  else if (t.type === 'Wastage') inv.wastage += q;
+  else inv.adjustments += q;
   await saveInventory(inv);
 }
 
@@ -260,7 +308,7 @@ export async function applyTransaction(t: Row) {
 
 export async function addActivity(me: Me, entries: Row[]) {
   if (!Array.isArray(entries) || entries.length > 50) throw new HttpError(400, 'Send up to 50 activity entries at a time.');
-  const visible = isAdmin(me) ? null : new Set((await orderRows()).map(parseOrder).filter(o => isAssigned(o, me.name)).map(o => o.id));
+  const visible = isAdmin(me) ? null : new Set((await orderRows()).map(parseOrder).filter(o => canAccess(o, me.name)).map(o => o.id));
   return tx(async () => {
     for (const e of entries) {
       const entity = String(e?.entity || '').slice(0, 60), text = String(e?.text || '').slice(0, 500);

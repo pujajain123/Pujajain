@@ -171,7 +171,7 @@
     const { key, label } = periodRange(period);
     const inMonth = v => String(v || '').startsWith(key);
     const jobs = getJobs();
-    const tx = db.transactions.filter(t => inMonth(t.date));
+    const tx = db.transactions.filter(t => inMonth(t.date) && !t.replacedBy);
     const total = m => tx.filter(t => t.material === m).reduce((s, t) => s + num(t.qty), 0);
     const active = db.orders.filter(o => !['Completed', 'Dispatched'].includes(o.stage));
     const entries = staffEntries().filter(a => inMonth(a.time));

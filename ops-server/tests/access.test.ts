@@ -135,7 +135,6 @@ test('staff can update their own job but nothing else', async () => {
   const notMine = moved.body.order;
   const foreign = await amit.put(`/api/orders/${notMine.id}`, { order: notMine, baseVersion: notMine._version });
   assert.equal(foreign.status, 404);
-  assert.equal((await amit.post('/api/orders', { order: { id: 'UM-9999', processes: [] } })).status, 403);
 });
 
 test('an out-of-date save is rejected instead of overwriting', async () => {
@@ -307,4 +306,48 @@ test('staff can record a dispatch for a ready order, but not move other stages',
   assert.equal(r.body.order.dispatch.address, '12 MG Road, Bengaluru');
   const back = await amit.put(`/api/orders/${o.id}`, { order: { ...r.body.order, stage: 'In production' }, baseVersion: r.body.order._version });
   assert.equal(back.status, 403);
+});
+
+test('staff can create an order: they see it, it gets Master production rows, and they can issue its materials', async () => {
+  const order = {
+    id: 'UM-2001', client: 'Staff Client', product: 'Chair', qty: 2, orderDate: '2026-10-12', deadline: '2026-11-30', stage: 'Order received', priority: 'Standard',
+    items: [{ sku: 'UM-CH-1', name: 'Chair', qty: 2, ropeRequired: 10, ropeCode: 'X', doriColour: 'Y', fabricRequired: 3, fabricCompany: 'Agora' }],
+    processes: [{ name: 'Iron Work', assigned: 'Rahul Mehta', completed: 0, status: 'Not started' }, { name: 'Rope Work', assigned: 'Amit Shah', completed: 0, status: 'Not started' }, { name: 'Fabric Work', assigned: 'Neha Kapoor', completed: 0, status: 'Not started' }],
+    createdBy: 'Someone Else',
+  };
+  const r = await amit.post('/api/orders', { order });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(r.body.order.createdBy, 'Amit Shah', 'the server records who created it');
+  const mine = (await amit.get('/api/state')).body.db.orders.find((o: { id: string }) => o.id === 'UM-2001');
+  assert.ok(mine, 'creator sees the order');
+  assert.deepEqual(mine.processes.map((p: { name: string }) => p.name), ['Rope Work'], 'but only their own job sheets');
+  const tracker = (await admin.get('/api/state')).body.tracker.filter((x: { orderNo: string }) => x.orderNo === 'UM-2001');
+  assert.equal(tracker.length, 1);
+  assert.equal(tracker[0].ropeRequired, 'Yes');
+  const issue = await amit.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Outward', qty: 3, company: 'Agora', order: 'UM-2001' } });
+  assert.equal(issue.status, 201, JSON.stringify(issue.body));
+  assert.equal((await amit.post('/api/orders', { order: { ...order, id: 'NOT-AN-ID' } })).status, 400);
+});
+
+test('editing an inventory entry reverses the old amount, posts the new one, and keeps both in the ledger', async () => {
+  const inv = async () => (await admin.get('/api/state')).body.db.inventory.find((i: { name: string }) => i.name === 'Fabric');
+  const before = await inv();
+  const rahul = new Client();
+  assert.equal((await rahul.post('/api/auth/login', { login: 'rahul@example.com', password: 'rahulPass123' })).status, 200);
+  const first = await rahul.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Incoming', qty: 50, company: 'Agora' } });
+  assert.equal(first.status, 201);
+  assert.equal((await inv()).incoming, before.incoming + 50);
+  const edit = await rahul.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Incoming', qty: 20, company: 'SUNBRELLA', replaces: first.body.transaction.id, reason: 'Wrong quantity' } });
+  assert.equal(edit.status, 201, JSON.stringify(edit.body));
+  assert.equal((await inv()).incoming, before.incoming + 20, 'stock reflects the corrected amount');
+  const ledger = (await admin.get('/api/state')).body.db.transactions;
+  const old = ledger.find((t: { id: string }) => t.id === first.body.transaction.id);
+  assert.equal(old.replacedBy, edit.body.transaction.id, 'the original stays, marked as replaced');
+  assert.equal(edit.body.transaction.editedBy, 'Rahul Mehta');
+  assert.equal((await rahul.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Incoming', qty: 5, company: 'Agora', replaces: first.body.transaction.id } })).status, 409, 'an entry is edited once; edit the latest version');
+  const notMine = await amit.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Incoming', qty: 1, company: 'Agora', replaces: edit.body.transaction.id } });
+  assert.equal(notMine.status, 403, 'staff cannot edit other people\'s entries');
+  const adj = await admin.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Adjustment', qty: -7, notes: 'Stock count' } });
+  assert.equal(adj.status, 201);
+  assert.equal((await inv()).adjustments, before.adjustments - 7, 'stock counts can be corrected down');
 });
