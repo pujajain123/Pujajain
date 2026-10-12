@@ -281,3 +281,14 @@ body.auth-mode .app-shell{display:none}
 .pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:7px;background:none;color:var(--muted);cursor:pointer}
 .pw-eye:hover{color:var(--brand);background:var(--brand-soft)}
 .pw-eye:focus-visible{outline:2px solid #b08a76;outline-offset:1px}
+
+/* Materials issued to an order; dispatch address */
+.materials-issued{margin:16px 0}
+.stock-short{display:block;margin-top:3px;color:var(--red);font-size:11px;font-weight:700}
+.order-stock-note{margin-top:12px}
+.address-block{margin:0;font-size:13px;line-height:1.6;color:var(--ink)}
+.address-cell{max-width:190px;font-size:12px;line-height:1.45;color:#56615a;white-space:normal}
+.issued-row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--line)}
+.issued-row small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.issued-qty{text-align:right;white-space:nowrap}
+.issued-row strong{font-size:14px;font-weight:700}
