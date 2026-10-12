@@ -1,7 +1,24 @@
-/* Iron Work job sheet: the same fields as the "UMAMI STUDIO - IRON WORK JOB SHEET" spreadsheet,
-   with a product photo per line, editable by admin and staff, downloadable as PDF or Excel. */
+/* Iron Work and Rope Work job sheets: the same layout as the "UMAMI STUDIO - IRON WORK JOB SHEET" spreadsheet
+   (header fields, then one row per product with its photo), editable by admin and staff, downloadable as PDF or Excel.
+   The two sheets differ only in their last four columns. */
 (function () {
-  const SHEET_COLUMNS = [['sku', 'SKU'], ['product', 'Product Name'], ['qty', 'Qty'], ['dimensions', 'Dimensions'], ['material', 'Material'], ['pipeSection', 'Pipe Section'], ['finish', 'Finish']];
+  const BASE_COLUMNS = [['sku', 'SKU'], ['product', 'Product Name'], ['qty', 'Qty'], ['dimensions', 'Dimensions']];
+  const SHEETS = {
+    'Iron Work': {
+      label: 'Iron work', file: 'Iron', title: 'UMAMI STUDIO - IRON WORK JOB SHEET',
+      columns: [...BASE_COLUMNS, ['material', 'Material'], ['pipeSection', 'Pipe Section'], ['finish', 'Finish']],
+      fromItem: it => ({ material: it.material || 'Iron', pipeSection: it.pipeSection || '', finish: it.powderColor || '' }),
+      blank: () => ({ material: 'Iron', pipeSection: '', finish: '' }),
+    },
+    'Rope Work': {
+      label: 'Rope work', file: 'Rope', title: 'UMAMI STUDIO - ROPE WORK JOB SHEET',
+      columns: [...BASE_COLUMNS, ['ropeCode', 'Rope Size / Code'], ['doriColour', 'Dori Colour'], ['ropeRequired', 'Rope Required (m)']],
+      fromItem: it => ({ ropeCode: it.ropeCode || '', doriColour: it.doriColour || '', ropeRequired: it.ropeRequired || '' }),
+      blank: () => ({ ropeCode: '', doriColour: '', ropeRequired: '' }),
+    },
+  };
+  const NUMERIC = new Set(['qty', 'ropeRequired']);
+  const sheetFor = j => SHEETS[j.p.name];
   const LIBS = {
     jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
@@ -12,11 +29,11 @@
   function longDate(d) { return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : ''; }
 
   function ensureSheet(j) {
-    const { o, p } = j;
+    const { o, p } = j, cfg = sheetFor(j);
     if (p.sheet) return p.sheet;
     const lines = o.items?.length
-      ? o.items.map((it, i) => ({ item: i, sku: it.sku || '', product: it.name || '', qty: it.qty ?? '', dimensions: it.dimensions || '', material: it.material || 'Iron', pipeSection: it.pipeSection || '', finish: it.powderColor || '', photoData: it.photoData || '' }))
-      : [{ sku: '', product: o.product || '', qty: o.qty ?? '', dimensions: '', material: 'Iron', pipeSection: '', finish: '', photoData: o.photoData || '' }];
+      ? o.items.map((it, i) => ({ item: i, sku: it.sku || '', product: it.name || '', qty: it.qty ?? '', dimensions: it.dimensions || '', ...cfg.fromItem(it), photoData: it.photoData || '' }))
+      : [{ sku: '', product: o.product || '', qty: o.qty ?? '', dimensions: '', ...cfg.blank(), ...(p.name === 'Rope Work' && p.required ? { ropeRequired: p.required } : {}), photoData: o.photoData || '' }];
     p.sheet = { projectNo: o.client || '', date: o.orderDate || '', preparedBy: o.createdBy || '', jobSheetNo: o.id, expectedDelivery: p.due || o.deadline || '', projectName: o.product || '', lines };
     return p.sheet;
   }
@@ -25,39 +42,39 @@
     return `<label class="ijs-label">${label}</label><input class="ijs-input" type="${type}" data-ijs-job="${id}" data-ijs-key="${key}" value="${esc(value)}">`;
   }
 
-  function lineRow(id, line, i) {
-    const cell = (key, type = 'text') => `<td><input class="ijs-input" type="${type}" ${type === 'number' ? 'min="0"' : ''} data-ijs-job="${id}" data-ijs-line="${i}" data-ijs-key="${key}" value="${esc(line[key])}"></td>`;
+  function lineRow(id, cfg, line, i) {
+    const cell = key => { const type = NUMERIC.has(key) ? 'number' : 'text'; return `<td><input class="ijs-input" type="${type}" ${type === 'number' ? 'min="0" step="any"' : ''} data-ijs-job="${id}" data-ijs-line="${i}" data-ijs-key="${key}" value="${esc(line[key] ?? '')}"></td>`; };
     const photo = line.photoData
       ? `<img class="ijs-photo" src="${line.photoData}" alt="${esc(line.product)}">`
       : '<span class="ijs-photo empty">No photo</span>';
-    return `<tr>${cell('sku')}<td class="ijs-product"><button type="button" class="ijs-photo-button" data-ijs-photo="${id}" data-ijs-line="${i}" title="Choose product photo">${photo}<span>${line.photoData ? 'Change photo' : '＋ Choose photo'}</span></button><input type="file" accept="image/*" hidden data-ijs-photo-input="${id}" data-ijs-line="${i}"><input class="ijs-input" data-ijs-job="${id}" data-ijs-line="${i}" data-ijs-key="product" value="${esc(line.product)}" placeholder="Product name"></td>${cell('qty', 'number')}${cell('dimensions')}${cell('material')}${cell('pipeSection')}${cell('finish')}<td class="ijs-remove-cell"><button type="button" class="ijs-remove" data-ijs-remove="${id}" data-ijs-line="${i}" title="Remove row" aria-label="Remove row">×</button></td></tr>`;
+    return `<tr>${cell('sku')}<td class="ijs-product"><button type="button" class="ijs-photo-button" data-ijs-photo="${id}" data-ijs-line="${i}" title="Choose product photo">${photo}<span>${line.photoData ? 'Change photo' : '＋ Choose photo'}</span></button><input type="file" accept="image/*" hidden data-ijs-photo-input="${id}" data-ijs-line="${i}"><input class="ijs-input" data-ijs-job="${id}" data-ijs-line="${i}" data-ijs-key="product" value="${esc(line.product)}" placeholder="Product name"></td>${cfg.columns.slice(2).map(([k]) => cell(k)).join('')}<td class="ijs-remove-cell"><button type="button" class="ijs-remove" data-ijs-remove="${id}" data-ijs-line="${i}" title="Remove row" aria-label="Remove row">×</button></td></tr>`;
   }
 
   function sheetHtml(j) {
-    const s = ensureSheet(j), id = j.id;
-    return `<section class="panel iron-job-sheet" id="iron-job-sheet">
-      <div class="panel-header"><div><h2>Iron work job sheet</h2><p>Changes save automatically. Admin and staff can download this sheet.</p></div>
+    const s = ensureSheet(j), id = j.id, cfg = sheetFor(j);
+    return `<section class="panel iron-job-sheet job-sheet-doc" id="job-sheet-${id}">
+      <div class="panel-header"><div><h2>${cfg.label} job sheet</h2><p>Changes save automatically. Admin and staff can download this sheet.</p></div>
         <div class="ijs-downloads"><button type="button" class="secondary-button" data-ijs-download="pdf" data-ijs-for="${id}">↓ PDF</button><button type="button" class="secondary-button" data-ijs-download="xlsx" data-ijs-for="${id}">↓ Excel</button></div></div>
       <div class="ijs-doc">
-        <h3 class="ijs-title">UMAMI STUDIO - IRON WORK JOB SHEET</h3>
+        <h3 class="ijs-title">${cfg.title}</h3>
         <div class="ijs-head">
           ${headerField(id, 'projectNo', 'Project No.', s.projectNo)}${headerField(id, 'jobSheetNo', 'Job Sheet No.', s.jobSheetNo)}
           ${headerField(id, 'date', 'Date', s.date, 'date')}${headerField(id, 'expectedDelivery', 'Expected Delivery', s.expectedDelivery, 'date')}
           ${headerField(id, 'preparedBy', 'Prepared By', s.preparedBy)}<span></span><span></span>
         </div>
         <div class="ijs-project">${headerField(id, 'projectName', 'Project Name', s.projectName)}</div>
-        <div class="ijs-table-wrap"><table class="ijs-table"><thead><tr>${SHEET_COLUMNS.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr></thead>
-          <tbody>${s.lines.map((l, i) => lineRow(id, l, i)).join('')}</tbody></table></div>
+        <div class="ijs-table-wrap"><table class="ijs-table"><thead><tr>${cfg.columns.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr></thead>
+          <tbody>${s.lines.map((l, i) => lineRow(id, cfg, l, i)).join('')}</tbody></table></div>
         <button type="button" class="compact-button ijs-add" data-ijs-add="${id}">＋ Add row</button>
       </div>
     </section>`;
   }
 
-  const withIronSheet = openJob;
+  const withJobSheet = openJob;
   openJob = function (id) {
-    withIronSheet(id);
+    withJobSheet(id);
     const j = getJobs().find(x => x.id === id), drawer = document.querySelector('#overlay-root .drawer');
-    if (!j || !drawer || j.p.name !== 'Iron Work') return;
+    if (!j || !drawer || !sheetFor(j)) return;
     drawer.classList.remove('narrow');
     drawer.classList.add('wide');
     drawer.querySelector('.job-product-photos')?.remove();
@@ -76,14 +93,14 @@
     const s = ensureSheet(j), key = f.dataset.ijsKey;
     if (f.dataset.ijsLine !== undefined) {
       const line = s.lines[Number(f.dataset.ijsLine)];
-      if (line) line[key] = key === 'qty' && f.value !== '' ? Number(f.value) : f.value;
+      if (line) line[key] = NUMERIC.has(key) && f.value !== '' ? Number(f.value) : f.value;
     } else s[key] = f.value;
     persist();
   });
 
   document.addEventListener('change', e => {
     const f = e.target.closest('[data-ijs-key]');
-    if (f) { const j = jobFor(f, 'ijsJob'); if (j) addActivity(currentActor(), j.id, 'Iron work job sheet updated'), persist(); return; }
+    if (f) { const j = jobFor(f, 'ijsJob'); if (j) addActivity(currentActor(), j.id, `${sheetFor(j).label} job sheet updated`), persist(); return; }
     const input = e.target.closest('[data-ijs-photo-input]');
     if (!input) return;
     const file = input.files?.[0], j = jobFor(input, 'ijsPhotoInput');
@@ -106,9 +123,9 @@
     const pick = e.target.closest('[data-ijs-photo]');
     if (pick) { document.querySelector(`[data-ijs-photo-input="${pick.dataset.ijsPhoto}"][data-ijs-line="${pick.dataset.ijsLine}"]`)?.click(); return; }
     const add = e.target.closest('[data-ijs-add]');
-    if (add) { const j = jobFor(add, 'ijsAdd'); if (!j) return; ensureSheet(j).lines.push({ sku: '', product: '', qty: '', dimensions: '', material: 'Iron', pipeSection: '', finish: '', photoData: '' }); persist(); reopen(j.id); return; }
+    if (add) { const j = jobFor(add, 'ijsAdd'); if (!j) return; ensureSheet(j).lines.push({ sku: '', product: '', qty: '', dimensions: '', ...sheetFor(j).blank(), photoData: '' }); persist(); reopen(j.id); return; }
     const rm = e.target.closest('[data-ijs-remove]');
-    if (rm) { const j = jobFor(rm, 'ijsRemove'), s = j && ensureSheet(j); if (!s) return; if (s.lines.length === 1) { toast('A job sheet needs at least one row.'); return; } if (!confirm('Remove this row from the job sheet?')) return; s.lines.splice(Number(rm.dataset.ijsLine), 1); addActivity(currentActor(), j.id, 'Row removed from iron work job sheet'); persist(); reopen(j.id); return; }
+    if (rm) { const j = jobFor(rm, 'ijsRemove'), s = j && ensureSheet(j); if (!s) return; if (s.lines.length === 1) { toast('A job sheet needs at least one row.'); return; } if (!confirm('Remove this row from the job sheet?')) return; s.lines.splice(Number(rm.dataset.ijsLine), 1); addActivity(currentActor(), j.id, `Row removed from ${sheetFor(j).label} job sheet`); persist(); reopen(j.id); return; }
     const dl = e.target.closest('[data-ijs-download]');
     if (dl) { const j = jobFor(dl, 'ijsFor'); if (j) download(j, dl.dataset.ijsDownload, dl); }
   });
@@ -173,14 +190,14 @@
   window.umamiSaveFile = saveFile;
 
   async function download(j, format, button) {
-    const s = ensureSheet(j), label = button.textContent;
+    const s = ensureSheet(j), cfg = sheetFor(j), label = button.textContent;
     button.disabled = true; button.textContent = 'Preparing…';
     try {
       const lines = await preparedLines(s);
-      const name = `Iron-Job-Sheet-${(s.jobSheetNo || j.o.id).replace(/[^\w-]+/g, '-')}`;
-      const blob = format === 'pdf' ? await buildPdf(s, lines) : await buildXlsx(s, lines);
+      const name = `${cfg.file}-Job-Sheet-${(s.jobSheetNo || j.o.id).replace(/[^\w-]+/g, '-')}`;
+      const blob = format === 'pdf' ? await buildPdf(cfg, s, lines) : await buildXlsx(cfg, s, lines);
       if (await saveFile(`${name}.${format}`, blob)) {
-        addActivity(currentActor(), j.id, `Iron work job sheet downloaded (${format.toUpperCase()})`);
+        addActivity(currentActor(), j.id, `${cfg.label} job sheet downloaded (${format.toUpperCase()})`);
         persist();
       }
     } catch (err) {
@@ -189,14 +206,14 @@
     } finally { button.disabled = false; button.textContent = label; }
   }
 
-  async function buildPdf(s, lines) {
+  async function buildPdf(cfg, s, lines) {
     await loadScript(LIBS.jspdf);
     await loadScript(LIBS.autotable);
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const W = doc.internal.pageSize.getWidth(), M = 12;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
-    doc.text('UMAMI STUDIO - IRON WORK JOB SHEET', W / 2, 16, { align: 'center' });
+    doc.text(cfg.title, W / 2, 16, { align: 'center' });
     const box = (x, y, w, label, value) => {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(label, x, y + 5);
       doc.setFont('helvetica', 'normal'); doc.rect(x + 34, y, w, 7); doc.text(String(value || ''), x + 36, y + 5);
@@ -212,8 +229,8 @@
     doc.autoTable({
       startY: 62,
       margin: { left: M, right: M },
-      head: [SHEET_COLUMNS.map(([, l]) => l)],
-      body: lines.map(l => [l.sku, l.product, l.qty, l.dimensions, l.material, l.pipeSection, l.finish].map(v => v == null ? '' : String(v))),
+      head: [cfg.columns.map(([, l]) => l)],
+      body: lines.map(l => cfg.columns.map(([k]) => (l[k] == null ? '' : String(l[k])))),
       theme: 'grid',
       styles: { font: 'helvetica', fontSize: 10, textColor: 20, lineColor: 30, lineWidth: 0.2, valign: 'bottom', cellPadding: 2 },
       headStyles: { fillColor: [232, 232, 232], textColor: 20, fontStyle: 'bold', valign: 'middle' },
@@ -231,14 +248,14 @@
     return doc.output('blob');
   }
 
-  async function buildXlsx(s, lines) {
+  async function buildXlsx(cfg, s, lines) {
     await loadScript(LIBS.exceljs);
     const wb = new window.ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Iron Job Sheet', { pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    const ws = wb.addWorksheet(`${cfg.file} Job Sheet`, { pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
     ws.columns = [{ width: 16 }, { width: 40 }, { width: 8 }, { width: 22 }, { width: 18 }, { width: 18 }, { width: 18 }];
     const thin = { style: 'thin', color: { argb: 'FF000000' } }, border = { top: thin, left: thin, bottom: thin, right: thin };
     ws.mergeCells('A2:G2');
-    Object.assign(ws.getCell('A2'), { value: 'UMAMI STUDIO - IRON WORK JOB SHEET' });
+    Object.assign(ws.getCell('A2'), { value: cfg.title });
     ws.getCell('A2').font = { bold: true, size: 16 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const pair = (labelRef, valueRange, label, value) => {
       const l = ws.getCell(labelRef); l.value = label; l.font = { bold: true };
@@ -253,10 +270,10 @@
     pair('A8', 'B8:G8', 'Project Name', s.projectName);
     ws.getCell('B8').alignment = { horizontal: 'center' };
     const head = ws.getRow(10);
-    SHEET_COLUMNS.forEach(([, l], i) => { const c = head.getCell(i + 1); c.value = l; c.font = { bold: true }; c.border = border; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } }; });
+    cfg.columns.forEach(([, l], i) => { const c = head.getCell(i + 1); c.value = l; c.font = { bold: true }; c.border = border; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } }; });
     lines.forEach((l, i) => {
       const row = ws.getRow(11 + i);
-      [l.sku, l.product, l.qty === '' ? '' : l.qty, l.dimensions, l.material, l.pipeSection, l.finish].forEach((v, k) => { const c = row.getCell(k + 1); c.value = v ?? ''; c.border = border; c.alignment = { vertical: 'bottom', wrapText: true }; });
+      cfg.columns.map(([key]) => l[key]).forEach((v, k) => { const c = row.getCell(k + 1); c.value = v ?? ''; c.border = border; c.alignment = { vertical: 'bottom', wrapText: true }; });
       if (l.jpeg) {
         row.height = 150;
         const id = wb.addImage({ base64: l.jpeg, extension: 'jpeg' });

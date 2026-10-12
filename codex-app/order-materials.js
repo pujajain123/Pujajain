@@ -10,6 +10,7 @@
   const persist = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   const ROPE_KEY = 'umami-rope-inventory-v1', TRACKER_KEY = 'umami-production-tracker-v1';
   const PROCESS_FOR = { Rope: 'Rope Work', Fabric: 'Fabric Work', 'Powder Color': 'Iron Work' };
+  const FABRIC_COMPANIES = ['Agora', 'SUNBRELLA', 'D’Decor', 'Gaurika', 'Asadeep', 'Sun N Joy', 'Others'];
 
   /* ---------- Stock levels ---------- */
   const inv = name => {
@@ -37,10 +38,44 @@
       input.closest('.field')?.insertAdjacentHTML('afterend', '<div class="field"><label>Powder required (kg)</label><input name="linePowderKg" type="number" min="0" step="0.1" placeholder="Kilograms"></div>');
     });
     form?.querySelectorAll('input[name=lineFabricQty]').forEach(input => { const l = input.closest('.field')?.querySelector('label'); if (l) l.textContent = 'Fabric required (m)'; });
+    // Fabric company: pick from the fabric suppliers; fabric code suggests codes used on earlier orders.
+    form?.querySelectorAll('input[name=lineFabricCompany]').forEach(input => {
+      input.outerHTML = `<select name="lineFabricCompany"><option value="">Select fabric company</option>${FABRIC_COMPANIES.map(c => `<option>${esc(c)}</option>`).join('')}</select>`;
+    });
+    const codes = [...new Set(db.orders.flatMap(o => (o.items || []).map(it => it.fabricCode)).filter(Boolean))].sort();
+    form?.insertAdjacentHTML('beforeend', `<datalist id="fabric-codes">${codes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>`);
+    form?.querySelectorAll('input[name=lineFabricCode]').forEach(input => input.setAttribute('list', 'fabric-codes'));
     const lines = form?.querySelector('[data-extra-order-lines]');
     lines?.insertAdjacentHTML('afterend', '<div class="info-banner order-stock-note">Rope, fabric and powder colour entered for each product are taken out of inventory when the order is created and shown on its job sheets. Rope is matched to the rope stock by its size / code and dori colour.</div>');
   };
   window.openNewOrder = openNewOrder;
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('[data-add-order-line]')) return;
+    setTimeout(() => {
+      const rows = document.querySelectorAll('#order-form [data-order-line]'), row = rows[rows.length - 1];
+      const select = row?.querySelector('select[name=lineFabricCompany]');
+      if (!select || rows.length < 2) return;
+      select.value = '';
+      const trigger = select.closest('[data-custom-select]')?.querySelector('.app-select-trigger');
+      if (trigger) trigger.textContent = 'Select fabric company';
+    });
+  });
+
+  /* ---------- Success bar after an order is created ---------- */
+  function showSuccessBar(o, issued, shortages) {
+    document.querySelector('.success-bar')?.remove();
+    const jobs = o.processes.length;
+    const mats = issued.map(x => `${x.material} ${fmt(x.qty)} ${x.unit}`).join(' · ');
+    const bar = document.createElement('div');
+    bar.className = `success-bar${shortages.length ? ' warn' : ''}`;
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = `<span class="success-icon">✓</span><div><strong>Order ${esc(o.id)} created for ${esc(o.client)}</strong><small>${jobs} job sheets created${mats ? ` · Issued from inventory: ${esc(mats)}` : ''} · Added to Master production${shortages.length ? ` · <b>Stock short:</b> ${esc(shortages.join('; '))}` : ''}</small></div><button type="button" class="compact-button" data-success-view="${esc(o.id)}">View order</button><button type="button" class="success-close" aria-label="Close">×</button>`;
+    (document.querySelector('.topbar') || document.body.firstElementChild).insertAdjacentElement('afterend', bar);
+    const timer = setTimeout(() => bar.remove(), shortages.length ? 20000 : 12000);
+    bar.querySelector('.success-close').addEventListener('click', () => { clearTimeout(timer); bar.remove(); });
+    bar.querySelector('[data-success-view]').addEventListener('click', () => { clearTimeout(timer); bar.remove(); openOrder(o.id); });
+  }
 
   /* ---------- Issue materials when an order is created ---------- */
   const baseSubmitOrder = submitOrder;
@@ -144,7 +179,7 @@
     localStorage.setItem(TRACKER_KEY, JSON.stringify(trackerRows));
     persist();
     render();
-    if (issued.length) toast(shortages.length ? `${o.id}: materials issued, but stock is short: ${shortages.join('; ')}.` : `${o.id}: ${issued.length} material ${issued.length === 1 ? 'entry' : 'entries'} taken from inventory.`);
+    showSuccessBar(o, issued, shortages);
   }
 
   /* ---------- Show issued materials on job sheets and the order ---------- */
