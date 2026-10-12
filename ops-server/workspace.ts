@@ -69,8 +69,10 @@ export async function readState(me: Me) {
   // An edited entry stays in the ledger, marked with the entry that replaced it.
   const replacedBy = new Map(transactions.filter(t => t.replaces).map(t => [t.replaces, t.id]));
   for (const t of transactions) if (replacedBy.has(t.id)) t.replacedBy = replacedBy.get(t.id);
+  // Staff see their own orders' history plus what the other staff members did (not admin-only changes).
+  const staffIds = new Set((await all("SELECT id FROM users WHERE role <> 'admin'")).map(u => u.id));
   const activity = (await all('SELECT time, actor, entity, text, user_id, demo FROM activity ORDER BY time DESC, seq DESC LIMIT 2000'))
-    .filter(a => admin || a.user_id === me.id || a.actor === me.name || ownEntity(a.entity))
+    .filter(a => admin || a.user_id === me.id || a.actor === me.name || ownEntity(a.entity) || staffIds.has(a.user_id))
     .map(a => ({ time: a.time, actor: a.actor, entity: a.entity, text: a.text, ...(a.demo ? { demo: true } : {}) }));
   const inventory = await loadAllInventory();
 

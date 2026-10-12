@@ -312,3 +312,8 @@ body.auth-mode .app-shell{display:none}
 @media (max-width:700px){.assign-grid{grid-template-columns:1fr}}
 .edited-tag{display:block;margin-top:3px;color:var(--blue);font-size:10px;font-weight:700;letter-spacing:.04em}
 .inventory-category-card [data-stock-adjust]{align-self:flex-start;margin:6px 0 0}
+.copy-row{display:flex;gap:8px;align-items:center}
+.copy-row input{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.credentials-card textarea{width:100%;resize:vertical;font:inherit;font-size:13px}
+.credentials-card .form-actions{flex-wrap:wrap}
+.credentials-card .form-actions a{text-decoration:none}

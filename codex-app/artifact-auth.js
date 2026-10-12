@@ -1,9 +1,12 @@
 /* Sign-in for the published (browser-only) dashboard.
    Accounts live in the page's shared database (the `db` capability) so every device sees the same logins;
    without it (local preview) they fall back to this browser's storage.
-   - First visit: email → (staff inbox: pick your name) → create password → confirm → signed in.
-   - Forgot password: the request goes to the admins; once an admin allows it, the person sets a new password
-     with the same create → confirm screen. (This page cannot send emails.)
+   - Admins: email → create password the first time (or enter it) → signed in.
+   - Staff: everyone uses the shared staff email; each person has their own password, created by the system when
+     an admin adds them (Staff → Add staff) and shared by the admin. The password alone tells us who signed in.
+   - Forgot password: the request goes to the admins. For staff the admin generates a new password; for admins,
+     another admin allows a reset and they create a new one. (This page cannot send emails.)
+   - Everyone can change their own password from the Account menu.
    Passwords are stored only as salted PBKDF2 hashes. This is a sign-in for the dashboard, not a server-side
    security boundary: the page and its data are only as private as who the link is shared with. */
 (() => {
@@ -15,7 +18,8 @@
     { id: 'manish', name: 'Manish', email: STAFF_INBOX, role: 'staff' },
   ];
   const SESSION_KEY = 'umami-session-v1', LOCAL_ACCOUNTS = 'umami-accounts-v1';
-  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'dispatch', 'reports', 'guide'];
+  const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'dispatch', 'reports', 'activity', 'guide'];
+  const SHARE_LINK = 'https://claude.ai/artifact/4jcuUfnEqVQmbhtqQSZRrt';
   const LOGO = document.querySelector('.brand-logo')?.getAttribute('src') || '';
   const norm = s => String(s || '').trim().toLowerCase();
   const slug = s => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'staff';
@@ -64,6 +68,30 @@
     if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) throw new Error('Use at least one letter and one number.');
   }
 
+  // Readable system password: no look-alike characters (0/O, 1/l/I), always a letter and a number.
+  function generatePassword() {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const pw = [...crypto.getRandomValues(new Uint32Array(10))].map(n => chars[n % chars.length]).join('');
+    return /\d/.test(pw) && /[a-zA-Z]/.test(pw) ? pw : generatePassword();
+  }
+  const isStaffLogin = a => a.role !== 'admin' && norm(a.email) === STAFF_INBOX;
+  // Staff share one email, so a password may belong to only one of them.
+  async function passwordOwner(pw, list, { activeOnly = false, except = '' } = {}) {
+    for (const a of list) {
+      if (!isStaffLogin(a) || !a.hash || a.id === except || (activeOnly && a.status === 'disabled')) continue;
+      if ((await hashPassword(pw, a.salt)).hash === a.hash) return a;
+    }
+    return null;
+  }
+  async function issuePassword(acc) {
+    const list = await accounts();
+    let pw;
+    do { pw = generatePassword(); } while (await passwordOwner(pw, list, { except: acc.id }));
+    const { salt, hash } = await hashPassword(pw);
+    await save({ ...acc, salt, hash, resetRequested: false, passwordSetAt: new Date().toISOString(), passwordIssuedBy: me?.name || '' });
+    return pw;
+  }
+
   /* ---------- Screens ---------- */
   const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function screen(html) {
@@ -96,10 +124,29 @@
       <button type="button" class="text-button auth-link" data-forgot>Forgot password?</button>`);
     root.querySelector('[data-forgot]').addEventListener('click', () => showForgot(root.querySelector('[name=email]').value));
     bind(root, async d => {
+      if (norm(d.email) === STAFF_INBOX) return showStaffPassword();
       const matches = (await accounts()).filter(a => norm(a.email) === norm(d.email) && a.status !== 'disabled');
       if (!matches.length) throw new Error('This email does not have access. Ask an admin to add you.');
       if (matches.length === 1) return showPassword(matches[0]);
       showWho(matches, d.email);
+    });
+  }
+
+  // Staff: shared email + the password the admin gave them. The password identifies the person.
+  function showStaffPassword() {
+    const root = screen(`<h1>Staff sign in</h1><p class="auth-sub">${escHtml(STAFF_INBOX)}</p>
+      <form class="auth-form"><input type="hidden" name="u" value="${escHtml(STAFF_INBOX)}" autocomplete="username">
+      <label class="field"><span>Your password</span><input name="password" type="password" autocomplete="current-password" required></label>
+      <p class="auth-hint">Use the password your admin gave you.</p>
+      <div class="auth-error" role="alert" hidden></div><button class="primary-button auth-submit" type="submit">Sign in</button></form>
+      <button type="button" class="text-button auth-link" data-forgot>Forgot password?</button>
+      <button type="button" class="text-button auth-link" data-back>Use a different email</button>`);
+    root.querySelector('[data-back]').addEventListener('click', () => showEmail());
+    root.querySelector('[data-forgot]').addEventListener('click', () => showForgot(STAFF_INBOX));
+    bind(root, async d => {
+      const acc = await passwordOwner(d.password, await accounts(), { activeOnly: true });
+      if (!acc) throw new Error('That password is incorrect. Ask your admin if you need a new one.');
+      signIn(acc);
     });
   }
 
@@ -150,7 +197,7 @@
 
   // Forgot password: find the account by email, then ask the admins to allow a reset.
   function showForgot(prefill = '') {
-    const root = screen(`<h1>Forgot password</h1><p class="auth-sub">Enter your email. Your request goes to the admins; once they allow it, you'll create a new password here.</p>
+    const root = screen(`<h1>Forgot password</h1><p class="auth-sub">Enter your email. Your request goes to the admins, who will give you a new password.</p>
       <form class="auth-form"><label class="field"><span>Email</span><input name="email" type="email" autocapitalize="none" spellcheck="false" value="${escHtml(prefill)}" required></label>
       <div class="auth-error" role="alert" hidden></div><button class="primary-button auth-submit" type="submit">Send reset request</button></form>
       <button type="button" class="text-button auth-link" data-back>Back to sign in</button>`);
@@ -166,15 +213,17 @@
   async function requestReset(acc) {
     await save({ ...acc, resetRequested: true, resetRequestedAt: new Date().toISOString() });
     const admins = SEED_ACCOUNTS.filter(a => a.role === 'admin').map(a => a.email).join(',');
-    const mail = `mailto:${admins}?subject=${encodeURIComponent('Umami dashboard: password reset for ' + acc.name)}&body=${encodeURIComponent(`Hi, please allow a password reset for ${acc.name} (${acc.email}) in the Umami dashboard: Staff → Team logins → Allow reset.`)}`;
-    const root = screen(`<h1>Request sent</h1><p class="auth-sub">The admins (Khushboo and Bhavya) will see your request on the dashboard. Once one of them allows it, come back here, enter your email and create a new password.</p>
+    const staff = acc.role !== 'admin';
+    const how = staff ? 'Staff → Team logins → New password' : 'Staff → Team logins → Allow reset';
+    const mail = `mailto:${admins}?subject=${encodeURIComponent('Umami dashboard: password reset for ' + acc.name)}&body=${encodeURIComponent(`Hi, please reset the password for ${acc.name} (${acc.email}) in the Umami dashboard: ${how}.`)}`;
+    const root = screen(`<h1>Request sent</h1><p class="auth-sub">The admins (Khushboo and Bhavya) will see your request on the dashboard. ${staff ? 'They will give you a new password.' : 'Once one of them allows it, come back here, enter your email and create a new password.'}</p>
       <a class="secondary-button auth-submit" href="${mail}" target="_blank" rel="noopener">Also email the admins</a>
       <button type="button" class="text-button auth-link" data-back>Back to sign in</button>`);
     root.querySelector('[data-back]').addEventListener('click', () => showEmail('', acc.email));
   }
 
   /* ---------- Session and roles ---------- */
-  let me = null;
+  let me = null, roster = [];
   function signIn(acc) {
     me = acc;
     team = null;
@@ -199,7 +248,26 @@
     for (const s of SEED_ACCOUNTS) if (s.role === 'staff' && !PEOPLE.includes(s.name)) PEOPLE.push(s.name);
     if (!admin && !STAFF_PAGES.includes(page)) { page = 'dashboard'; location.hash = '#dashboard'; }
     render();
+    // Everyone with a staff login can be assigned jobs, and shows up in the staff activity view.
+    accounts().then(list => {
+      roster = list;
+      for (const a of list) if (a.role !== 'admin' && a.status !== 'disabled' && !PEOPLE.includes(a.name)) PEOPLE.push(a.name);
+      if (page === 'activity') render();
+    }).catch(() => {});
   }
+
+  /* ---------- Activity: staff see what every staff member did (admin-only changes stay hidden) ---------- */
+  const baseRenderActivity = renderActivity;
+  renderActivity = function () {
+    if (!me || me.role === 'admin') return baseRenderActivity();
+    const admins = new Set(['admin', 'system', ...SEED_ACCOUNTS.concat(roster).filter(a => a.role === 'admin').map(a => norm(a.name))]);
+    const staff = new Set([...PEOPLE, ...roster.filter(a => a.role !== 'admin').map(a => a.name), me.name].map(norm));
+    const all = db.activity;
+    db.activity = all.filter(a => staff.has(norm(a.actor)) && !admins.has(norm(a.actor)));
+    try {
+      return baseRenderActivity().replace('A permanent record of meaningful order, production and inventory changes.', 'What you and the other staff members have done: orders, job updates, inventory and dispatch.');
+    } finally { db.activity = all; }
+  };
 
   currentActor = () => (me ? me.name : 'Admin');
   const baseRender = render;
@@ -249,6 +317,7 @@
       if ((await hashPassword(d.current, acc.salt)).hash !== acc.hash) throw new Error('Your current password is incorrect.');
       if (d.password !== d.confirm) throw new Error('The two new passwords do not match.');
       checkStrength(d.password);
+      if (isStaffLogin(acc) && await passwordOwner(d.password, await accounts(), { except: acc.id })) throw new Error('That password cannot be used. Choose a different one.');
       const { salt, hash } = await hashPassword(d.password);
       me = { ...acc, salt, hash, passwordSetAt: new Date().toISOString() };
       await save(me);
@@ -275,27 +344,65 @@
     host?.querySelectorAll('[data-action="add-staff"]').forEach(b => { if (!b.closest('.team-logins')) b.remove(); });
     if (!host || host.querySelector('.team-logins')) return;
     if (!team) { loadTeam(); return; }
-    const state = a => a.status === 'disabled' ? '<span class="account-status disabled">Disabled</span>' : a.resetRequested ? '<span class="account-status invited">Reset requested</span>' : a.hash ? '<span class="account-status">Password set</span>' : '<span class="account-status invited">Not signed in yet</span>';
-    const html = `<section class="panel team-logins team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM LOGINS</div><h2>Who can sign in</h2><p>Only these emails can sign in. Each person creates their own password the first time.</p></div><button type="button" class="primary-button" data-team-add>＋ Add staff</button></div>
-      ${team.some(a => a.resetRequested && a.status !== 'disabled') ? '<div class="report-due"><strong>Password reset requested.</strong> Click <b>Allow reset</b> next to the person; they can then create a new password at sign-in.</div>' : ''}
+    const state = a => a.status === 'disabled' ? '<span class="account-status disabled">Disabled</span>'
+      : a.resetRequested ? '<span class="account-status invited">Reset requested</span>'
+      : a.hash ? `<span class="account-status">${a.role === 'admin' ? 'Password set' : 'Has password'}</span>`
+      : `<span class="account-status invited">${a.role === 'admin' ? 'Not signed in yet' : 'No password yet'}</span>`;
+    const actions = a => {
+      if (a.id === me.id) return '';
+      if (a.role === 'admin') return a.status !== 'disabled' && (a.hash || a.resetRequested) ? `<button type="button" class="compact-button" data-team-reset="${escHtml(a.id)}">Allow reset</button>` : '';
+      if (a.status === 'disabled') return `<button type="button" class="compact-button" data-team-enable="${escHtml(a.id)}">Enable</button>`;
+      return `<button type="button" class="compact-button" data-team-newpw="${escHtml(a.id)}">${a.hash ? 'New password' : 'Create password'}</button><button type="button" class="compact-button" data-team-disable="${escHtml(a.id)}">Disable</button>`;
+    };
+    const html = `<section class="panel team-logins team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM LOGINS</div><h2>Who can sign in</h2><p>Staff sign in with the shared email <b>${escHtml(STAFF_INBOX)}</b> and their own password. Add staff with just their name; the system creates the password for you to share.</p></div><button type="button" class="primary-button" data-team-add>＋ Add staff</button></div>
+      ${team.some(a => a.resetRequested && a.status !== 'disabled') ? '<div class="report-due"><strong>Password reset requested.</strong> Click <b>New password</b> next to the staff member and share it with them (for an admin, click <b>Allow reset</b>).</div>' : ''}
       <div class="table-wrap"><table class="data-table"><thead><tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>STATUS</th><th></th></tr></thead><tbody>${team.map(a => `<tr><td><strong>${escHtml(a.name)}</strong>${a.id === me.id ? ' <small class="demo-tag" style="color:var(--muted)">YOU</small>' : ''}</td><td>${escHtml(a.email)}${norm(a.email) === STAFF_INBOX ? '<small style="display:block;color:#9ca49f">Shared staff email</small>' : ''}</td><td>${a.role === 'admin' ? 'Admin' : 'Staff'}</td><td>${state(a)}</td>
-        <td class="account-actions">${a.status !== 'disabled' && (a.hash || a.resetRequested) && a.id !== me.id ? `<button type="button" class="compact-button" data-team-reset="${escHtml(a.id)}">Allow reset</button>` : ''}${a.id === me.id || a.role === 'admin' ? '' : a.status === 'disabled' ? `<button type="button" class="compact-button" data-team-enable="${escHtml(a.id)}">Enable</button>` : `<button type="button" class="compact-button" data-team-disable="${escHtml(a.id)}">Disable</button>`}</td></tr>`).join('')}</tbody></table></div>
+        <td class="account-actions">${actions(a)}</td></tr>`).join('')}</tbody></table></div>
       ${store.shared ? '' : '<p class="small-note">Preview mode: logins are saved in this browser only.</p>'}</section>`;
     const anchor = host.querySelector('.report-grid');
     anchor ? anchor.insertAdjacentHTML('beforebegin', html) : host.insertAdjacentHTML('beforeend', html);
   }
+
+  // The login details to hand to a staff member: copy each one, copy everything, or send on WhatsApp.
+  function showCredentials(acc, pw, fresh) {
+    const message = `Hi ${acc.name}, here is your Umami Studio dashboard login.\nLink: ${SHARE_LINK}\nEmail: ${acc.email}\nPassword: ${pw}\nYou can change your password after signing in (Account → Change password).`;
+    const row = (label, value) => `<div class="field full"><label>${label}</label><div class="copy-row"><input readonly value="${escHtml(value)}" data-copy-value><button type="button" class="compact-button" data-copy>Copy</button></div></div>`;
+    document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card credentials-card"><div class="modal-heading"><div><div class="eyebrow">STAFF LOGIN</div><h2>${fresh ? `${escHtml(acc.name)} added` : `New password for ${escHtml(acc.name)}`}</h2><p>Share these with ${escHtml(acc.name)}. The password is shown only now; if it gets lost, create a new one.</p></div><button class="close-button" data-close>×</button></div>
+      <div class="form-grid">${row('Link', SHARE_LINK)}${row('Email', acc.email)}${row('Password', pw)}
+      <div class="field full"><label>Message to send</label><textarea readonly rows="5" data-copy-value>${escHtml(message)}</textarea></div></div>
+      <div class="form-actions"><a class="secondary-button" href="https://wa.me/?text=${encodeURIComponent(message)}" target="_blank" rel="noopener">Send on WhatsApp</a><button type="button" class="secondary-button" data-copy-all>Copy all</button><button type="button" class="primary-button" data-close>Done</button></div></section></div>`;
+  }
+  async function copyText(field) {
+    try { await navigator.clipboard.writeText(field.value); return true; } catch (e) { /* clipboard blocked; try selecting */ }
+    try { field.focus(); field.select(); return document.execCommand('copy'); } catch (e) { return false; }
+  }
   document.addEventListener('click', async e => {
-    const reset = e.target.closest('[data-team-reset]'), dis = e.target.closest('[data-team-disable]'), en = e.target.closest('[data-team-enable]');
+    const btn = e.target.closest('[data-copy], [data-copy-all]');
+    if (!btn) return;
+    const field = btn.matches('[data-copy]') ? btn.previousElementSibling : btn.closest('.modal-card').querySelector('textarea[data-copy-value]');
+    if (await copyText(field)) { const label = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = label; }, 1500); }
+    else { field.focus(); field.select(); toast('Press Ctrl+C (or long-press → Copy) to copy.'); }
+  });
+
+  document.addEventListener('click', async e => {
+    const reset = e.target.closest('[data-team-reset]'), dis = e.target.closest('[data-team-disable]'), en = e.target.closest('[data-team-enable]'), pw = e.target.closest('[data-team-newpw]');
     if (e.target.closest('[data-team-add]')) {
-      document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">STAFF</div><h2>Add staff</h2><p>They create their own password the first time they sign in.</p></div><button class="close-button" data-close>×</button></div>
-        <form id="team-add-form"><div class="form-grid"><div class="field full"><label>Name</label><input name="name" required maxlength="60" placeholder="e.g. Ravi"></div><div class="field full"><label>Email</label><input name="email" type="email" value="${STAFF_INBOX}" required></div></div>
-        <p class="small-note">Leave the shared staff email (${STAFF_INBOX}) or enter their own. Their name must match the name used when assigning jobs.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Add staff</button></div></form></section></div>`;
+      document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">STAFF</div><h2>Add staff</h2><p>Enter their name. The system creates their password; you'll get the login details to share.</p></div><button class="close-button" data-close>×</button></div>
+        <form id="team-add-form"><div class="form-grid"><div class="field full"><label>Name</label><input name="name" required maxlength="60" placeholder="e.g. Ravi"></div></div>
+        <p class="small-note">They sign in with the shared staff email (${STAFF_INBOX}) and their own password. Their name is used when assigning jobs.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Add staff</button></div></form></section></div>`;
       return;
     }
-    if (!reset && !dis && !en) return;
-    const id = (reset || dis || en).dataset[reset ? 'teamReset' : dis ? 'teamDisable' : 'teamEnable'];
+    if (!reset && !dis && !en && !pw) return;
+    const id = reset ? reset.dataset.teamReset : dis ? dis.dataset.teamDisable : en ? en.dataset.teamEnable : pw.dataset.teamNewpw;
     const acc = (await accounts()).find(a => a.id === id);
     if (!acc) return;
+    if (pw) {
+      if (acc.hash && !confirm(`Create a new password for ${acc.name}? Their current password stops working.`)) return;
+      const password = await issuePassword(acc);
+      addActivity(me.name, 'Accounts', `Created a new password for ${acc.name}`);
+      team = null; render();
+      return showCredentials(acc, password, false);
+    }
     if (reset && !confirm(`Allow ${acc.name} to create a new password? Their current password stops working.`)) return;
     if (dis && !confirm(`Disable ${acc.name}? They will not be able to sign in.`)) return;
     const next = reset ? { ...acc, hash: '', salt: '', resetRequested: false } : { ...acc, status: dis ? 'disabled' : 'active' };
@@ -311,14 +418,14 @@
     const list = await accounts();
     if (name.length < 2) return toast('Enter their name.');
     if (list.some(a => norm(a.name) === norm(name) && a.status !== 'disabled')) return toast(`${name} already has a login.`);
-    if (norm(d.email) !== STAFF_INBOX && list.some(a => norm(a.email) === norm(d.email))) return toast('That email already has a login.');
     let id = slug(name); for (let i = 2; list.some(a => a.id === id); i++) id = `${slug(name)}-${i}`;
-    await save({ id, name, email: norm(d.email), role: 'staff', status: 'active' });
+    const acc = { id, name, email: STAFF_INBOX, role: 'staff', status: 'active', createdBy: me.name, createdAt: new Date().toISOString() };
+    await save(acc);
+    const password = await issuePassword(acc);
     if (!PEOPLE.includes(name)) PEOPLE.push(name);
     addActivity(me.name, 'Accounts', `Added staff login for ${name}`);
-    document.querySelector('#overlay-root').innerHTML = '';
-    toast(`${name} added. They sign in with ${norm(d.email)} and create their password.`);
     team = null; render();
+    showCredentials(acc, password, true);
   }, true);
 
   /* ---------- Show/hide button on every password box ---------- */

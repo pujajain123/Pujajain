@@ -351,3 +351,14 @@ test('editing an inventory entry reverses the old amount, posts the new one, and
   assert.equal(adj.status, 201);
   assert.equal((await inv()).adjustments, before.adjustments - 7, 'stock counts can be corrected down');
 });
+
+test('staff see what other staff did, but not admin-only activity', async () => {
+  const created = await createUser(null, { name: 'Vikram Rao', email: 'vikram@example.com', role: 'staff' });
+  const karan = await activate((created as { inviteLink: string }).inviteLink, 'karanPass1234');
+  assert.equal((await karan.post('/api/activity', { entries: [{ entity: 'Fabric', text: 'Karan counted the fabric stock' }] })).status, 201);
+  assert.equal((await admin.post('/api/activity', { entries: [{ actor: 'Shubham Jain', entity: 'Settings', text: 'Admin changed a setting' }] })).status, 201);
+  const seen = (await amit.get('/api/state')).body.db.activity.map((a: { text: string }) => a.text);
+  assert.ok(seen.includes('Karan counted the fabric stock'));
+  assert.ok(!seen.includes('Admin changed a setting'));
+  assert.ok((await admin.get('/api/state')).body.db.activity.some((a: { text: string }) => a.text === 'Karan counted the fabric stock'));
+});
