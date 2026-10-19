@@ -87,6 +87,16 @@
     }
   }
 
+  function renumber(o, next) {
+    const old = o.id, oldJob = `JOB-${old.slice(3)}-`, newJob = `JOB-${next.slice(3)}-`;
+    o.id = next;
+    (o.processes || []).forEach(p => { if (p.sheet?.jobSheetNo === old) p.sheet.jobSheetNo = next; });
+    db.transactions.forEach(t => { if (t.order === old) t.order = next; if (String(t.job).startsWith(oldJob)) t.job = newJob + t.job.slice(oldJob.length); if (t.notes) t.notes = t.notes.split(old).join(next); });
+    db.activity.forEach(a => { if (a.entity === old) a.entity = next; else if (String(a.entity).startsWith(oldJob)) a.entity = newJob + a.entity.slice(oldJob.length); });
+    trackerRows.forEach(r => { if (r.orderNo === old) r.orderNo = next; });
+    toast(`Order number ${old} was just taken; this order is saved as ${next}.`);
+  }
+
   async function syncNow() {
     if (running) { again = true; return; }
     running = true;
@@ -96,7 +106,16 @@
         if (before === json) continue;
         if (json.includes('data:image/')) await shrinkPhotos(o);
         if (before === undefined) {
-          const { order } = await request('POST', '/api/orders', { order: o });
+          let created;
+          try { created = await request('POST', '/api/orders', { order: o }); }
+          catch (err) {
+            if (err.code !== 'order_exists') throw err;
+            // Someone else used this order number meanwhile: move this order to the next free number and retry once.
+            const latest = await request('GET', '/api/state');
+            renumber(o, `UM-${Math.max(latest.lastOrderNo || 0, ...db.orders.map(x => Number(x.id.slice(3)) || 0)) + 1}`);
+            created = await request('POST', '/api/orders', { order: o });
+          }
+          const { order } = created;
           replaceInPlace(o, order);
         } else {
           const { order } = await request('PUT', `/api/orders/${encodeURIComponent(o.id)}`, { order: o, baseVersion: o._version });
@@ -154,6 +173,7 @@
     trackerRows = state.tracker;
     if (state.rope) ropeSheetData = state.rope;
     PEOPLE.splice(0, PEOPLE.length, ...state.people);
+    window.UMAMI_LAST_ORDER = state.lastOrderNo || 0;
     revision = state.revision;
     writeCache();
     base = snapshot();

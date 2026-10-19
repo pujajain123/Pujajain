@@ -17,15 +17,19 @@ npm run ops:test       # access-control and account tests
 
 On first start with an empty database, the server:
 
-1. starts an empty workspace (no orders, stock or history) with the imported Master production rows
-   (`codex-app/seed-data.js`) and the rope workbook (`codex-app/rope_inventory_data.json`), and
-2. creates the accounts in `config/initial-users.json` (2 admins, 2 staff) and prints each person's single-use
+1. starts an empty workspace: no orders, stock, history or Master production rows; the rope list
+   (`codex-app/rope_inventory_data.json`) is loaded with every quantity at zero, and
+2. creates the accounts in `config/initial-users.json` (the 2 admins) and prints each person's single-use
    set-password link (valid 48 hours). **Put the real emails in that file before the first start.**
 
 A database created before live use held a sample workspace (six sample orders UM-1043 to UM-1048, sample stock
 figures, sample ledger and activity entries). On start, the server removes exactly those records once and logs how
 many; anything the team entered is kept. The automated tests load that sample workspace from
 `ops-server/tests/fixtures/sample-workspace.json`; it is never loaded into a live dashboard.
+
+Before going live the owner asked for everything to start at zero. On its next start the server resets an existing
+database once (`workspaceResetV2`): all orders and photos, inventory history, activity, Master production rows and
+staff accounts are removed and all stock is set to zero. Admin accounts and settings stay.
 
 Developer commands:
 

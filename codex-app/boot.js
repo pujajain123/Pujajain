@@ -131,6 +131,7 @@
     if (state.rope) localStorage.setItem('umami-rope-inventory-v1', JSON.stringify(state.rope)); else localStorage.removeItem('umami-rope-inventory-v1');
     window.UMAMI_ME = me;
     window.UMAMI_SERVER = { revision: state.revision, people: state.people };
+    window.UMAMI_LAST_ORDER = state.lastOrderNo || 0;
     if (location.pathname !== '/') history.replaceState(null, '', '/' + (location.hash || '#dashboard'));
     else if (!location.hash) history.replaceState(null, '', '/#dashboard');
     await loadScripts(APP_SCRIPTS);

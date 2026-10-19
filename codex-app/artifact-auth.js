@@ -46,7 +46,8 @@
     };
   }
   async function accounts() {
-    const list = await store.all();
+    // Removed staff and internal markers (ids starting with "_") are not accounts.
+    const list = (await store.all()).filter(a => !String(a.id).startsWith('_') && a.status !== 'removed');
     // The developer-defined first accounts always exist; their saved state (password, status) comes from storage.
     for (const s of SEED_ACCOUNTS) if (!list.some(a => a.id === s.id)) list.push({ ...s, status: 'active' });
     return list;
@@ -457,6 +458,12 @@
   screen('<h1>Loading…</h1><p class="auth-sub">Preparing sign-in.</p>');
   (async () => {
     store = await openStore();
+    // One-time reset before going live (requested by the owner): every existing staff login is removed; admins stay.
+    const all = await store.all();
+    if (!all.some(a => a.id === '_staff-reset-v2')) {
+      for (const a of all) if (a.role === 'staff' && a.status !== 'removed') await store.patch(a.id, { status: 'removed', hash: '', salt: '', removedAt: new Date().toISOString() });
+      await store.put({ id: '_staff-reset-v2', at: new Date().toISOString() });
+    }
     let session = null;
     try { session = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { session = null; }
     const acc = session && (await accounts()).find(a => a.id === session.id);

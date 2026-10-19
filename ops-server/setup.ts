@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { get, run, tx, openDb } from './db.ts';
-import { seedWorkspace, removeSampleData } from './workspace.ts';
+import { seedWorkspace, removeSampleData, resetWorkspace } from './workspace.ts';
 import { createUser } from './accounts.ts';
 import type { Role } from './auth.ts';
 
@@ -10,7 +10,7 @@ export const ROOT = process.env.OPS_ROOT || process.cwd();
 const readSeed = (file: string) => { const src = fs.readFileSync(file, 'utf8'); return JSON.parse(src.slice(src.indexOf('=') + 1).trim().replace(/;\s*$/, '')); };
 const readRope = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'codex-app/rope_inventory_data.json'), 'utf8'));
 
-/** An empty database gets the imported Master production rows and rope workbook; no orders, stock or history. */
+/** An empty database gets the rope list (all quantities zero) and nothing else: no orders, stock or history. */
 export async function seedWorkspaceFromFiles() {
   const seed = readSeed(path.join(ROOT, 'codex-app/seed-data.js'));
   return seedWorkspace({ ordersAndOperations: {} }, readRope(), seed.productionTracker || []);
@@ -19,7 +19,7 @@ export async function seedWorkspaceFromFiles() {
 /** Automated tests only: the old sample workspace, so the tests have orders and job sheets to work with. */
 export async function seedTestFixture(file = path.join(ROOT, 'ops-server/tests/fixtures/sample-workspace.json')) {
   const fixture = JSON.parse(fs.readFileSync(file, 'utf8'));
-  return seedWorkspace(fixture, readRope(), fixture.productionTracker || []);
+  return seedWorkspace(fixture, fixture.rope || readRope(), fixture.productionTracker || []);
 }
 
 type Seeded = { name: string; role: Role; login: string; link: string; password?: string };
@@ -79,9 +79,11 @@ export function ensureReady() {
   if (!ready) {
     ready = (async () => {
       await openDb();
-      if (await seedWorkspaceFromFiles()) console.log('New workspace: empty, with the imported production tracker and rope workbook.');
+      if (await seedWorkspaceFromFiles()) console.log('New workspace: empty, with the rope list at zero stock.');
       const removed = await removeSampleData();
       if (removed) console.log(`Old sample data removed: ${removed.orders} orders, ${removed.entries} inventory entries, ${removed.activity} activity entries.`);
+      const reset = await resetWorkspace();
+      if (reset) console.log(`Workspace reset to zero: ${reset.orders} orders, ${reset.entries} inventory entries, ${reset.activity} activity entries and ${reset.staff} staff accounts removed.`);
       printSeeded(await seedInitialUsers());
       await applyTemporaryPasswords();
     })();

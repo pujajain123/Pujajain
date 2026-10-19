@@ -81,6 +81,8 @@ export async function readState(me: Me) {
     tracker: admin ? await kvGet<Row[]>('tracker', []) : [],
     rope: await kvGet<Row>('rope', null),
     people: await people(),
+    // Staff only see their own orders; new order numbers must still follow the highest one in use.
+    lastOrderNo: orders.reduce((n, o) => Math.max(n, Number(/^UM-(\d+)$/.exec(o.id)?.[1] || 0)), 0),
     revision: Number(await kvGet('revision', 0)),
   };
 }
@@ -145,7 +147,7 @@ export async function createOrder(me: Me, input: Order) {
   o.createdAt = o.createdAt || now();
   return tx(async () => {
     const r = await run('INSERT INTO orders (id, data, version, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?) ON CONFLICT (id) DO NOTHING', o.id, JSON.stringify(o), 1, now(), now(), me.name);
-    if (r.changes !== 1) throw new HttpError(409, `Order ${o.id} already exists.`);
+    if (r.changes !== 1) throw new HttpError(409, `Order ${o.id} already exists.`, 'order_exists');
     // Master production rows are built here too, so they exist whoever created the order.
     const locked = await get(`SELECT value FROM kv WHERE key='tracker' FOR UPDATE`);
     const tracker: Row[] = locked ? JSON.parse(locked.value) : [];
@@ -430,6 +432,55 @@ export async function removeSampleData() {
   });
 }
 
+/* ---------- One-time reset to a clean workspace (requested by the owner before going live) ---------- */
+
+// Everything operational goes: orders and their photos, the inventory ledger and activity, the Master production
+// rows, and all staff accounts. Stock totals and every rope in the rope workbook are set to zero (the rope list stays
+// so purchases can be recorded against it). Admin accounts, settings and the schema are kept. Runs once.
+export async function resetWorkspace() {
+  return tx(async () => {
+    await get('SELECT pg_advisory_xact_lock(727005)');
+    if (await get('SELECT 1 FROM kv WHERE key=?', 'workspaceResetV2')) return null;
+    const result = { orders: 0, entries: 0, activity: 0, staff: 0 };
+    if (await get('SELECT 1 FROM kv WHERE key=?', 'seeded')) {
+      result.orders = (await run('DELETE FROM orders')).changes;
+      await run('DELETE FROM uploads');
+      const staff = (await all(`SELECT id FROM users WHERE role='staff'`)).map(r => Number(r.id));
+      // The append-only and never-delete guards are lifted only inside this transaction.
+      await run('ALTER TABLE transactions DISABLE TRIGGER transactions_append_only');
+      await run('ALTER TABLE activity DISABLE TRIGGER activity_append_only');
+      await run('ALTER TABLE users DISABLE TRIGGER users_no_delete');
+      result.entries = (await run('DELETE FROM transactions')).changes;
+      result.activity = (await run('DELETE FROM activity')).changes;
+      for (const id of staff) {
+        await run('DELETE FROM sessions WHERE user_id=?', id);
+        await run('DELETE FROM auth_tokens WHERE user_id=?', id);
+        await run('UPDATE auth_tokens SET created_by=NULL WHERE created_by=?', id);
+        await run('DELETE FROM auth_events WHERE user_id=?', id);
+        await run('UPDATE auth_events SET actor_id=NULL WHERE actor_id=?', id);
+        await run('UPDATE users SET created_by=NULL WHERE created_by=?', id);
+        result.staff += (await run('DELETE FROM users WHERE id=?', id)).changes;
+      }
+      await run('ALTER TABLE transactions ENABLE TRIGGER transactions_append_only');
+      await run('ALTER TABLE activity ENABLE TRIGGER activity_append_only');
+      await run('ALTER TABLE users ENABLE TRIGGER users_no_delete');
+      for (const name of CATEGORIES) await saveInventory({ name, unit: name === 'Powder Color' ? 'kg' : 'm', opening: 0, incoming: 0, adjustments: 0, reserved: 0, consumed: 0, wastage: 0, reorder: 0 });
+      await kvSet('tracker', []);
+      const rope = await kvGet<Row | null>('rope', null);
+      if (rope) await kvSet('rope', zeroRope(rope));
+      await bumpRevision();
+    }
+    await kvSet('workspaceResetV2', JSON.stringify({ at: now(), ...result }));
+    return result;
+  });
+}
+
+/** Rope workbook with every quantity at zero and no purchase or issue history; the rope list itself stays. */
+export function zeroRope(rope: Row) {
+  const QTY = ['Opening Stock (m)', 'Total Purchased (m)', 'Total Outward (m)', 'Current Balance (m)'];
+  return { ...rope, stock_master: (rope.stock_master || []).map((r: Row) => ({ ...r, ...Object.fromEntries(QTY.map(k => [k, '0'])) })), purchase_log: [], outward_log: [] };
+}
+
 /* ---------- First-run seed from the exported workspace snapshot ---------- */
 
 export async function seedWorkspace(snapshot: Row, rope: Row, tracker: Row[]) {
@@ -462,6 +513,7 @@ export async function seedWorkspace(snapshot: Row, rope: Row, tracker: Row[]) {
     // Whatever was seeded here was asked for (live: nothing but the tracker and rope workbook; tests: a fixture),
     // so the one-time sample clean-up below must not touch it.
     await kvSet('sampleDataRemovedV1', now());
+    await kvSet('workspaceResetV2', now());
     await bumpRevision();
     return true;
   });

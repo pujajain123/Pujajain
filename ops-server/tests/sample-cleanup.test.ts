@@ -11,7 +11,7 @@ delete process.env.DATABASE_URL;
 
 const { openDb, closeDb, run, get, all, kvGet } = await import('../db.ts');
 const { seedTestFixture, seedWorkspaceFromFiles } = await import('../setup.ts');
-const { removeSampleData, applyTransaction } = await import('../workspace.ts');
+const { removeSampleData, applyTransaction, resetWorkspace } = await import('../workspace.ts');
 
 before(async () => { await openDb(); });
 after(async () => { await closeDb(); fs.rmSync(dir, { recursive: true, force: true }); });
@@ -47,7 +47,26 @@ test('an existing database loses exactly the old sample data and keeps what the 
   assert.equal(await removeSampleData(), null, 'runs only once');
 });
 
-test('a new database starts empty apart from the production tracker and rope workbook', async () => {
+test('the one-time reset clears everything to zero and removes staff, keeping admins', async () => {
+  await run(`DELETE FROM kv WHERE key='workspaceResetV2'`);
+  await run(`INSERT INTO users (name, email, role, status, created_at) VALUES ('Admin One','a1@example.com','admin','active','2026-10-01'),('Staff One','s1@example.com','staff','active','2026-10-01')`);
+  const staffId = (await get(`SELECT id FROM users WHERE email='s1@example.com'`)).id;
+  await run(`INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES ('h1', ?, '2026-10-01', '2099-01-01')`, staffId);
+  await run(`INSERT INTO kv (key, value) VALUES ('tracker', '[{"orderNo":"X"}]') ON CONFLICT (key) DO UPDATE SET value=excluded.value`);
+  const r = await resetWorkspace();
+  assert.ok(r && r.staff === 1 && r.orders >= 1, JSON.stringify(r));
+  assert.equal((await all('SELECT id FROM orders')).length, 0);
+  assert.equal((await all('SELECT id FROM transactions')).length, 0);
+  assert.equal((await all('SELECT seq FROM activity')).length, 0);
+  assert.deepEqual((await all(`SELECT email FROM users ORDER BY email`)).map(u => u.email), ['a1@example.com'], 'staff removed, admin kept');
+  assert.deepEqual(await kvGet('tracker', null), []);
+  for (const row of (await kvGet('rope', { stock_master: [] } as any)).stock_master) assert.equal(row['Current Balance (m)'], '0');
+  for (const x of await all('SELECT data FROM inventory')) { const i = JSON.parse(x.data); assert.equal(i.opening + i.incoming + i.adjustments - i.reserved - i.consumed - i.wastage, 0); }
+  await assert.rejects(run(`DELETE FROM users WHERE email='a1@example.com'`), /never deleted/, 'guards are back on');
+  assert.equal(await resetWorkspace(), null, 'runs only once');
+});
+
+test('a new database starts empty apart from the rope list at zero', async () => {
   await run('DELETE FROM orders'); await run(`DELETE FROM kv`);
   await seedWorkspaceFromFiles();
   assert.equal((await all('SELECT id FROM orders')).length, 0);
@@ -55,6 +74,6 @@ test('a new database starts empty apart from the production tracker and rope wor
     const i = JSON.parse(r.data);
     assert.equal(i.opening + i.incoming + i.adjustments - i.reserved - i.consumed - i.wastage, 0, `${i.name} starts at zero`);
   }
-  assert.ok((await kvGet('tracker', [])).length > 0);
+  assert.equal((await kvGet('tracker', [])).length, 0);
   assert.equal(await removeSampleData(), null, 'nothing to clean in a new database');
 });
