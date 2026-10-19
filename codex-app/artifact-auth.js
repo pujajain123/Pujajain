@@ -14,8 +14,6 @@
   const SEED_ACCOUNTS = [
     { id: 'khushboo', name: 'Khushboo', email: 'khushboo@umamistudio.in', role: 'admin' },
     { id: 'bhavya', name: 'Bhavya', email: 'bhavya@umamistudio.in', role: 'admin' },
-    { id: 'akshay', name: 'Akshay', email: STAFF_INBOX, role: 'staff' },
-    { id: 'manish', name: 'Manish', email: STAFF_INBOX, role: 'staff' },
   ];
   const SESSION_KEY = 'umami-session-v1', LOCAL_ACCOUNTS = 'umami-accounts-v1';
   const STAFF_PAGES = ['dashboard', 'orders', 'jobs', 'inventory', 'dispatch', 'reports', 'activity', 'guide'];
