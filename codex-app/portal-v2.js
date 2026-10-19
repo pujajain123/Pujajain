@@ -10,42 +10,6 @@
   const saveFile = (name, blob) => window.umamiSaveFile ? window.umamiSaveFile(name, blob) : Promise.resolve(false);
   const csvBlob = rows => new Blob(['\uFEFF' + rows.map(r => r.map(v => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')], { type: 'text/csv' });
 
-  /* ---------- Sample staff entries (clearly marked DEMO, removable from the Staff page) ---------- */
-  if (!db.staffDemoV2) {
-    const now = Date.now();
-    const at = (days, hour) => { const d = new Date(now - days * 86400000); d.setHours(hour, 15, 0, 0); return d.toISOString(); };
-    const day = days => at(days, 12).slice(0, 10);
-    const tx = (id, days, material, staff, extra, qty) => ({ id, material, type: 'Incoming', qty, unit: unitFor(material), order: '—', job: '—', staff, enteredBy: staff, date: day(days), notes: 'Sample entry', demo: true, color: '', sku: '', mm: '', company: '', colorName: '', ...extra });
-    const sampleTx = [
-      tx('TX-DEMO-101', 1, 'Rope', 'Amit Shah', { color: 'Ivory', sku: 'PP-ROPE-IV', mm: '6' }, 250),
-      tx('TX-DEMO-102', 2, 'Fabric', 'Neha Kapoor', { company: 'SUNBRELLA' }, 40),
-      tx('TX-DEMO-103', 3, 'Powder Color', 'Rahul Mehta', { colorName: 'Matte Black' }, 25),
-      tx('TX-DEMO-104', 5, 'Rope', 'Amit Shah', { color: 'Terracotta', sku: 'PP-ROPE-TC', mm: '8' }, 180),
-      tx('TX-DEMO-105', 6, 'Fabric', 'Pooja Rao', { company: 'D’Decor' }, 22),
-      tx('TX-DEMO-106', 8, 'Powder Color', 'Karan Patel', { colorName: 'Champagne Gold' }, 12)
-    ];
-    sampleTx.forEach(t => { const inv = db.inventory.find(i => i.name === t.material); if (inv && t.material !== 'Rope') inv.incoming += t.qty; });
-    db.transactions.unshift(...sampleTx);
-    const act = (days, hour, actor, entity, text) => ({ time: at(days, hour), actor, entity, text: `DEMO · ${text}`, demo: true });
-    db.activity.push(
-      act(1, 11, 'Amit Shah', 'Rope', 'Rope incoming transaction TX-DEMO-101 · Ivory · PP-ROPE-IV · 6 mm · 250 m'),
-      act(1, 16, 'Amit Shah', 'JOB-1048-ROP', 'Rope Work: 18 → 24 units · In progress'),
-      act(2, 10, 'Neha Kapoor', 'Fabric', 'Fabric incoming transaction TX-DEMO-102 · SUNBRELLA · 40 m'),
-      act(2, 15, 'Pooja Rao', 'UM-1046', 'Order details updated · cushion fabric confirmed'),
-      act(3, 9, 'Rahul Mehta', 'Powder Color', 'Powder Color incoming transaction TX-DEMO-103 · Matte Black · 25 kg'),
-      act(3, 14, 'Rahul Mehta', 'JOB-1047-IRN', 'Iron work job sheet updated · pipe section and finish'),
-      act(4, 12, 'Karan Patel', 'UM-1044', 'Dispatch details entered · vehicle and driver'),
-      act(5, 11, 'Amit Shah', 'Rope', 'Rope incoming transaction TX-DEMO-104 · Terracotta · PP-ROPE-TC · 8 mm · 180 m'),
-      act(6, 10, 'Pooja Rao', 'Fabric', 'Fabric incoming transaction TX-DEMO-105 · D’Decor · 22 m'),
-      act(7, 13, 'Neha Kapoor', 'UM-1045', 'Order created · Side table · Arlo'),
-      act(8, 12, 'Karan Patel', 'Powder Color', 'Powder Color incoming transaction TX-DEMO-106 · Champagne Gold · 12 kg'),
-      act(9, 17, 'Pooja Rao', 'JOB-1046-FAB', 'Fabric Work: 12 → 20 units · Completed')
-    );
-    db.activity.sort((a, b) => String(b.time).localeCompare(String(a.time)));
-    [['UM-1046', 'Pooja Rao'], ['UM-1045', 'Neha Kapoor']].forEach(([id, who]) => { const o = db.orders.find(x => x.id === id); if (o) { o.createdBy = who; o.createdByDemo = true; } });
-    db.staffDemoV2 = true;
-    persist();
-  }
 
   /* ---------- Inventory: only the requested details per category ---------- */
   const ropeOptions = key => [...new Set((ropeSheetData?.stock_master || []).map(r => String(r[key] || '').trim()).filter(Boolean))].sort();
@@ -59,7 +23,7 @@
       <datalist id="rope-colours">${ropeOptions('Color').map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <datalist id="rope-skus">${ropeOptions('Rope Type (SKU)').map(c => `<option value="${esc(c)}">`).join('')}</datalist>`;
     if (material === 'Fabric') return `
-      <div class="field"><label>Company</label><select name="company" required>${FABRIC_COMPANIES.map(c => `<option>${esc(c)}</option>`).join('')}</select></div>
+      <div class="field"><label>Company</label><select name="company" required><option value="">Select company</option>${FABRIC_COMPANIES.map(c => `<option>${esc(c)}</option>`).join('')}</select></div>
       <div class="field"><label>Fabric code</label><input name="code" list="fabric-code-options" placeholder="e.g. AG-204 (optional)" maxlength="60"></div>
       <datalist id="fabric-code-options">${[...new Set(db.transactions.filter(t => t.material === 'Fabric').map(t => String(t.code || '').trim()).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <div class="field"><label>Meters</label><input name="qty" type="number" min="0.1" step="0.1" placeholder="Fabric metres" required></div>`;
@@ -105,6 +69,7 @@
   submitTransaction = function (form) {
     const d = Object.fromEntries(new FormData(form)), material = d.material, qty = num(d.qty), actor = currentActor();
     if (!CATEGORIES.includes(material) || qty <= 0) return;
+    if (material === 'Fabric' && !String(d.company || '').trim()) return toast('Choose the fabric company.');
     const t = { id: `TX-${Date.now().toString().slice(-6)}`, material, type: 'Incoming', qty, unit: unitFor(material), color: '', sku: '', mm: '', company: '', colorName: '', order: '—', job: '—', staff: actor, enteredBy: actor, date: today(), notes: '' };
     let detail;
     if (material === 'Rope') { Object.assign(t, { color: d.color.trim(), sku: d.sku.trim(), mm: d.mm }); addRopePurchase({ ...t, enteredBy: actor }); detail = `${t.color} · ${t.sku} · ${t.mm} mm · ${qty} m`; }
@@ -126,7 +91,7 @@
 
   function staffReportHtml() {
     const entries = staffEntries();
-    const people = [...new Set([...PEOPLE, 'Shubham Jain', ...entries.map(a => a.actor)])];
+    const people = [...new Set([...PEOPLE, ...entries.map(a => a.actor)])];
     const rows = entries.filter(a => (staffFilter.person === 'All' || a.actor === staffFilter.person) && (staffFilter.kind === 'All' || kindOf(a) === staffFilter.kind));
     const count = (p, k) => entries.filter(a => a.actor === p && kindOf(a) === k).length;
     const ordersCreated = p => db.orders.filter(o => o.createdBy === p).length;
@@ -275,7 +240,7 @@
       db.transactions.filter(t => t.demo && t.material !== 'Rope').forEach(t => { const inv = db.inventory.find(i => i.name === t.material); if (inv) inv.incoming = Math.max(0, inv.incoming - num(t.qty)); });
       db.transactions = db.transactions.filter(t => !t.demo);
       db.activity = db.activity.filter(a => !a.demo && !String(a.text).startsWith('DEMO · '));
-      db.orders.forEach(o => { if (o.createdByDemo) { o.createdBy = 'Shubham Jain'; delete o.createdByDemo; } });
+      db.orders.forEach(o => { if (o.createdByDemo) { o.createdBy = 'Admin'; delete o.createdByDemo; } });
       save();
       toast('Demo entries removed.');
     }

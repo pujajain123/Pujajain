@@ -8,8 +8,8 @@
     'Iron Work': {
       label: 'Iron work', file: 'Iron', title: 'UMAMI STUDIO - IRON WORK JOB SHEET',
       columns: [...BASE_COLUMNS, ['material', 'Material'], ['pipeSection', 'Pipe Section'], ['finish', 'Finish']],
-      fromItem: it => ({ material: it.material || 'Iron', pipeSection: it.pipeSection || '', finish: it.powderColor || '' }),
-      blank: () => ({ material: 'Iron', pipeSection: '', finish: '' }),
+      fromItem: it => ({ material: it.material || '', pipeSection: it.pipeSection || '', finish: it.powderColor || '' }),
+      blank: () => ({ material: '', pipeSection: '', finish: '' }),
     },
     'Rope Work': {
       label: 'Rope work', file: 'Rope', title: 'UMAMI STUDIO - ROPE WORK JOB SHEET',

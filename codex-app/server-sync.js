@@ -223,7 +223,7 @@
 
   openStaffForm = function () {
     document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">STAFF</div><h2>Add staff</h2><p>Give a new team member their own login.</p></div><button class="close-button" data-close>×</button></div>
-      <form id="add-staff-form"><div class="form-grid"><div class="field full"><label>Name <span style="color:var(--red)">*</span></label><input name="name" required maxlength="80" placeholder="e.g. Neha Kapoor"></div>
+      <form id="add-staff-form"><div class="form-grid"><div class="field full"><label>Name <span style="color:var(--red)">*</span></label><input name="name" required maxlength="80" placeholder="Full name"></div>
       <div class="field full"><label>Email (optional)</label><input name="email" type="email" placeholder="Their own email, or the staff inbox admin@umamistudio.in"></div></div>
       <div class="info-banner"><b>Their own email:</b> it becomes their login, and they get a link to set their password.<br><b>The staff inbox (admin@umamistudio.in):</b> they get their own login ID like <b>name@umami.app</b>, and the set-password link is emailed to the staff inbox.<br><b>No email:</b> a login ID and a temporary password are created for you to share.<br>Their name must match the name used when assigning jobs.</div>
       <div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Create login</button></div></form></section></div>`;

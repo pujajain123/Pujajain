@@ -56,6 +56,11 @@
       : safeNumber(row['Current Balance (m)']));
   }, 0);
 
+  // Rope stock lives in the rope workbook (by SKU, size and colour); totals elsewhere use the same figure.
+  const baseMaterialStock = materialStock;
+  materialStock = name => (name === 'Rope' && ropeSheetData ? stockFromWorkbook() : baseMaterialStock(name));
+  window.materialStock = materialStock;
+
   // Keep exactly the three requested material categories in the inventory UI.
   db.inventory = ['Rope', 'Fabric', 'Powder Color'].map(name => inventoryItem(name) || ({
     name,
@@ -64,29 +69,13 @@
   }));
   db.transactions ||= [];
   db.activity ||= [];
+  db.dispatches ||= []; // a new workspace starts with none
   if (!db.inventoryUnitMigrationV1) {
     inventoryItem('Rope').unit = 'm';
     db.inventoryUnitMigrationV1 = true;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   }
 
-  // Clearly marked sample audit events demonstrate staff attribution in this demo.
-  if (!db.sampleAuditEventsAdded) {
-    const now = new Date();
-    const at = minutesAgo => new Date(now.getTime() - minutesAgo * 60000).toISOString();
-    const sampleDate = now.toISOString().slice(0, 10);
-    const sampleOrder = db.orders.find(order => order.id === 'UM-1047');
-    if (sampleOrder) { sampleOrder.createdBy = 'Rahul Mehta'; sampleOrder.createdByDemo = true; }
-    inventoryItem('Fabric').incoming += 18;
-    db.transactions.unshift({ id: 'TX-DEMO-001', material: 'Fabric', type: 'Incoming', qty: 18, unit: 'm', company: 'Agora', order: '—', job: '—', staff: 'Neha Kapoor', enteredBy: 'Neha Kapoor', date: sampleDate, notes: 'Sample entry for staff accountability', demo: true });
-    db.activity.unshift(
-      { time: at(15), actor: 'Neha Kapoor', entity: 'Fabric', text: 'DEMO · Incoming fabric transaction TX-DEMO-001 recorded · Agora · 18 m' },
-      { time: at(34), actor: 'Amit Shah', entity: 'UM-1048', text: 'DEMO · Product colour detail updated · Natural cotton rope' },
-      { time: at(57), actor: 'Rahul Mehta', entity: 'UM-1047', text: 'DEMO · Order specification entered · Dining set production note' },
-    );
-    db.sampleAuditEventsAdded = true;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  }
 
   function renderInventory() {
     const fabric = inventoryItem('Fabric');

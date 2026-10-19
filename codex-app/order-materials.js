@@ -47,8 +47,8 @@
     form?.querySelectorAll('input[name=lineFabricCode]').forEach(input => input.setAttribute('list', 'fabric-codes'));
     // Who does each job. Staff creating an order are assigned by default, so the order shows in their work.
     const people = [...new Set([...PEOPLE, ...(db.role === 'Staff' && window.staffMember ? [window.staffMember] : [])])];
-    const pick = (name, i) => (db.role === 'Staff' && window.staffMember ? window.staffMember : PEOPLE[i % PEOPLE.length]);
-    form?.querySelector('[name=firstProcess]')?.closest('.field')?.insertAdjacentHTML('beforebegin', `<div class="field full assign-jobs"><label>Assign jobs</label><div class="assign-grid">${PROCESSES.map((name, i) => `<label class="field"><span>${name}</span><select name="assign-${i}">${people.map(p => `<option ${p === pick(name, i) ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>`).join('')}</div></div>`);
+    const pick = (name, i) => (db.role === 'Staff' && window.staffMember ? window.staffMember : PEOPLE.length ? PEOPLE[i % PEOPLE.length] : '');
+    form?.querySelector('[name=firstProcess]')?.closest('.field')?.insertAdjacentHTML('beforebegin', `<div class="field full assign-jobs"><label>Assign jobs</label><div class="assign-grid">${PROCESSES.map((name, i) => `<label class="field"><span>${name}</span><select name="assign-${i}"><option value="">Unassigned</option>${people.map(p => `<option ${p === pick(name, i) ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>`).join('')}</div></div>`);
     form?.querySelectorAll('[name=rope],[name=fabric]').forEach(input => { if (input.type !== 'hidden') input.closest('.field')?.remove(); });
     const lines = form?.querySelector('[data-extra-order-lines]');
     lines?.insertAdjacentHTML('afterend', '<div class="info-banner order-stock-note">Rope, fabric and powder colour entered for each product are taken out of inventory when the order is created and shown on its job sheets. Rope is matched to the rope stock by its size / code and dori colour.</div>');

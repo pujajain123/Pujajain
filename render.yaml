@@ -23,5 +23,3 @@ services:
         sync: false          # optional: lets the server email invite and reset links
       - key: MAIL_FROM
         sync: false          # e.g. "Umami Studio <ops@yourdomain.com>"
-      - key: OPS_DEMO_DATA
-        value: "1"           # set to 0 before first start to skip the sample staff entries

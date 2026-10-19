@@ -17,9 +17,15 @@ npm run ops:test       # access-control and account tests
 
 On first start with an empty database, the server:
 
-1. loads the exported workspace (`codex-app/seed-data.js`) and the rope workbook (`codex-app/rope_inventory_data.json`), and
+1. starts an empty workspace (no orders, stock or history) with the imported Master production rows
+   (`codex-app/seed-data.js`) and the rope workbook (`codex-app/rope_inventory_data.json`), and
 2. creates the accounts in `config/initial-users.json` (2 admins, 2 staff) and prints each person's single-use
    set-password link (valid 48 hours). **Put the real emails in that file before the first start.**
+
+A database created before live use held a sample workspace (six sample orders UM-1043 to UM-1048, sample stock
+figures, sample ledger and activity entries). On start, the server removes exactly those records once and logs how
+many; anything the team entered is kept. The automated tests load that sample workspace from
+`ops-server/tests/fixtures/sample-workspace.json`; it is never loaded into a live dashboard.
 
 Developer commands:
 
@@ -38,7 +44,6 @@ npm run ops:user -- invite --name "Name" --email x@y.com --role admin
 | `OPS_DATA_DIR` | `data/ops` | Location of the embedded database when `DATABASE_URL` is not set |
 | `APP_URL` | Vercel/Render address | Public address used in set-password links |
 | `RESEND_API_KEY`, `MAIL_FROM` | — | Send invite/reset emails through Resend. Without them, emails are kept in the `email_outbox` table and admins copy the link from the screen. |
-| `OPS_DEMO_DATA` | 1 | `0` skips the sample (DEMO) staff entries on first start |
 | `NODE_ENV=production` | — | Secure cookies (HTTPS only) |
 
 ## How access works

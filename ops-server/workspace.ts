@@ -368,6 +368,68 @@ export async function clearDemo(me: Me) {
   });
 }
 
+/* ---------- One-time removal of the old sample workspace ---------- */
+
+// Databases seeded before live use got a sample workspace: six sample orders, sample stock figures, three sample
+// ledger entries, four sample activity entries and demo-flagged staff entries. Exactly those are removed once.
+// Anything entered by the team stays, including entries recorded against a sample order.
+const SAMPLE_ORDERS: Record<string, string> = { 'UM-1048': 'Casa Forma', 'UM-1047': 'The June House', 'UM-1046': 'Studio North', 'UM-1045': 'Nook & Nest', 'UM-1044': 'Atelier One', 'UM-1043': 'Morrow Living' };
+const SAMPLE_TX: Record<string, string> = { 'TX-208': 'Cotton rope delivery', 'TX-207': 'Ivory boucle', 'TX-206': 'Arlo side table batch' };
+const SAMPLE_ACTIVITY = [
+  ['2026-10-08T10:42:00', 'Amit Shah', 'JOB-1048-ROP', 'Rope Work updated to 48%'],
+  ['2026-10-08T09:55:00', 'Rahul Mehta', 'JOB-1048-IRN', 'Iron Work marked completed'],
+  ['2026-10-07T16:20:00', 'System', 'UM-1048', 'Order production progress recalculated'],
+  ['2026-10-07T11:05:00', 'Shubham Jain', 'UM-1044', 'Order marked ready for dispatch'],
+];
+const SAMPLE_STOCK: Record<string, Record<string, number>> = { Rope: { opening: 280, incoming: 32, reserved: 152, consumed: 96, wastage: 3, reorder: 70 }, Fabric: { opening: 420, incoming: 75, reserved: 116, consumed: 120, wastage: 4, reorder: 100 } };
+
+export async function removeSampleData() {
+  return tx(async () => {
+    await get('SELECT pg_advisory_xact_lock(727004)');
+    if (await get('SELECT 1 FROM kv WHERE key=?', 'sampleDataRemovedV1')) return null;
+    const removed = { orders: 0, entries: 0, activity: 0 };
+    if (await get('SELECT 1 FROM kv WHERE key=?', 'seeded')) {
+      for (const [id, client] of Object.entries(SAMPLE_ORDERS)) {
+        const row = await get('SELECT data FROM orders WHERE id=?', id);
+        if (row && JSON.parse(row.data).client === client) { await run('DELETE FROM orders WHERE id=?', id); removed.orders++; }
+      }
+      // Sample stock figures (the seed wrote them straight into the totals) and the demo incoming entries added to them.
+      for (const [name, base] of Object.entries(SAMPLE_STOCK)) {
+        const inv = await loadInventory(name, true);
+        if (!inv) continue;
+        for (const k of ['opening', 'incoming', 'reserved', 'consumed', 'wastage']) inv[k] = Math.round((num(inv[k]) - base[k]) * 1000) / 1000;
+        if (num(inv.reorder) === base.reorder) inv.reorder = 0;
+        await saveInventory(inv);
+      }
+      for (const r of await all('SELECT data FROM transactions WHERE demo=1')) {
+        const t = JSON.parse(r.data);
+        if (t.material === 'Rope' || t.type !== 'Incoming') continue;
+        const inv = await loadInventory(t.material, true);
+        if (inv) { inv.incoming = Math.round((num(inv.incoming) - num(t.qty)) * 1000) / 1000; await saveInventory(inv); }
+      }
+      removed.entries += (await run('DELETE FROM transactions WHERE demo=1')).changes;
+      removed.activity += (await run('DELETE FROM activity WHERE demo=1')).changes;
+      // The four sample activity rows and three sample ledger entries were stored as ordinary rows; the append-only
+      // guard is lifted only inside this transaction, only to delete those exact rows.
+      const txIds: string[] = [];
+      for (const [id, notes] of Object.entries(SAMPLE_TX)) { const r = await get('SELECT data FROM transactions WHERE id=?', id); if (r && JSON.parse(r.data).notes === notes) txIds.push(id); }
+      const acts: number[] = [];
+      for (const [time, actor, entity, text] of SAMPLE_ACTIVITY) for (const r of await all('SELECT seq FROM activity WHERE time=? AND actor=? AND entity=? AND text=?', time, actor, entity, text)) acts.push(Number(r.seq));
+      if (txIds.length || acts.length) {
+        await run('ALTER TABLE transactions DISABLE TRIGGER transactions_append_only');
+        await run('ALTER TABLE activity DISABLE TRIGGER activity_append_only');
+        for (const id of txIds) removed.entries += (await run('DELETE FROM transactions WHERE id=?', id)).changes;
+        for (const seq of acts) removed.activity += (await run('DELETE FROM activity WHERE seq=?', seq)).changes;
+        await run('ALTER TABLE transactions ENABLE TRIGGER transactions_append_only');
+        await run('ALTER TABLE activity ENABLE TRIGGER activity_append_only');
+      }
+      await bumpRevision();
+    }
+    await kvSet('sampleDataRemovedV1', JSON.stringify({ at: now(), ...removed }));
+    return removed;
+  });
+}
+
 /* ---------- First-run seed from the exported workspace snapshot ---------- */
 
 export async function seedWorkspace(snapshot: Row, rope: Row, tracker: Row[]) {
@@ -397,35 +459,10 @@ export async function seedWorkspace(snapshot: Row, rope: Row, tracker: Row[]) {
     await kvSet('rope', rope);
     await kvSet('tracker', tracker);
     await kvSet('seeded', now());
-    if (process.env.OPS_DEMO_DATA !== '0') await seedDemoEntries();
+    // Whatever was seeded here was asked for (live: nothing but the tracker and rope workbook; tests: a fixture),
+    // so the one-time sample clean-up below must not touch it.
+    await kvSet('sampleDataRemovedV1', now());
     await bumpRevision();
     return true;
   });
-}
-
-/** Sample staff entries (flagged demo) so the staff report has something to show; removable by an admin. */
-async function seedDemoEntries() {
-  const day = (d: number, h = 12) => { const x = new Date(Date.now() - d * 864e5); x.setHours(h, 15, 0, 0); return x.toISOString(); };
-  const txs: Row[] = [
-    ['TX-DEMO-101', 1, 'Rope', 'Amit Shah', { color: 'Ivory', sku: 'PP-ROPE-IV', mm: '6' }, 250],
-    ['TX-DEMO-102', 2, 'Fabric', 'Neha Kapoor', { company: 'SUNBRELLA' }, 40],
-    ['TX-DEMO-103', 3, 'Powder Color', 'Rahul Mehta', { colorName: 'Matte Black' }, 25],
-    ['TX-DEMO-105', 6, 'Fabric', 'Pooja Rao', { company: 'D’Decor' }, 22],
-  ].map(([id, d, material, staff, extra, qty]) => ({ id, material, type: 'Incoming', qty, unit: material === 'Powder Color' ? 'kg' : 'm', color: '', sku: '', mm: '', company: '', colorName: '', order: '—', job: '—', staff, enteredBy: staff, date: day(d as number).slice(0, 10), notes: 'Sample entry', demo: true, ...(extra as Row) }));
-  for (const t of txs) {
-    if (await get('SELECT 1 FROM transactions WHERE id=?', t.id)) continue;
-    if (t.material !== 'Rope') await applyTransaction(t);
-    await run('INSERT INTO transactions (id, data, user_id, demo, created_at) VALUES (?,?,?,1,?)', t.id, JSON.stringify(t), null, now());
-  }
-  const acts: [number, number, string, string, string][] = [
-    [1, 11, 'Amit Shah', 'Rope', 'Rope incoming transaction TX-DEMO-101 · Ivory · PP-ROPE-IV · 6 mm · 250 m'],
-    [1, 16, 'Amit Shah', 'JOB-1048-ROP', 'Rope Work: 18 → 24 units · In progress'],
-    [2, 10, 'Neha Kapoor', 'Fabric', 'Fabric incoming transaction TX-DEMO-102 · SUNBRELLA · 40 m'],
-    [2, 15, 'Pooja Rao', 'UM-1046', 'Order details updated · cushion fabric confirmed'],
-    [3, 9, 'Rahul Mehta', 'Powder Color', 'Powder Color incoming transaction TX-DEMO-103 · Matte Black · 25 kg'],
-    [3, 14, 'Rahul Mehta', 'JOB-1047-IRN', 'Iron work job sheet updated · pipe section and finish'],
-    [4, 12, 'Karan Patel', 'UM-1044', 'Dispatch details entered · vehicle and driver'],
-    [6, 10, 'Pooja Rao', 'Fabric', 'Fabric incoming transaction TX-DEMO-105 · D’Decor · 22 m'],
-  ];
-  for (const [d, h, actor, entity, text] of acts) await run('INSERT INTO activity (time, actor, entity, text, user_id, demo) VALUES (?,?,?,?,NULL,1)', day(d, h), actor, entity, `DEMO · ${text}`);
 }

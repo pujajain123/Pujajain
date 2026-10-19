@@ -14,7 +14,7 @@ process.env.APP_URL = 'http://test.local';
 
 const { openDb, closeDb, run, get } = await import('../db.ts');
 const { createApp } = await import('../app.ts');
-const { seedWorkspaceFromFiles } = await import('../setup.ts');
+const { seedTestFixture } = await import('../setup.ts');
 const { createUser } = await import('../accounts.ts');
 
 let server: ReturnType<ReturnType<typeof createApp>['listen']>;
@@ -45,7 +45,7 @@ let admin: Client, amit: Client, rahul: Client;
 
 before(async () => {
   await openDb();
-  await seedWorkspaceFromFiles();
+  await seedTestFixture();
   const a = await createUser(null, { name: 'Shubham Jain', email: 'admin@example.com', role: 'admin' });
   const s1 = await createUser(null, { name: 'Amit Shah', email: 'amit@example.com', role: 'staff' });
   const s2 = await createUser(null, { name: 'Rahul Mehta', email: 'rahul@example.com', role: 'staff' });
