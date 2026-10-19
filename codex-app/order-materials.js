@@ -88,11 +88,12 @@
     const before = new Set(db.orders.map(o => o.id));
     const powder = [...form.querySelectorAll('[data-order-line]')].map(row => num(row.querySelector('[name=linePowderKg]')?.value));
     const assigned = PROCESSES.map((_, i) => form.querySelector(`[name=assign-${i}]`)?.value);
+    const fabrics = window.UmamiFabric ? [...form.querySelectorAll('[data-order-line]')].map(row => UmamiFabric.readParts(row, 'fab')) : [];
     baseSubmitOrder(form);
     const o = db.orders.find(x => !before.has(x.id));
     if (!o) return;
     o.processes.forEach((p, i) => { if (assigned[i]) p.assigned = assigned[i]; });
-    (o.items || []).forEach((it, i) => { it.powderKg = powder[i] || 0; });
+    (o.items || []).forEach((it, i) => { it.powderKg = powder[i] || 0; if (fabrics[i]) UmamiFabric.setParts(it, fabrics[i]); });
     addProductionSteps(o);
     issueMaterials(o);
   };
@@ -117,13 +118,13 @@
     let seq = 0;
     const job = material => { const p = o.processes.find(x => x.name === PROCESS_FOR[material]); return p ? jobId(o, p) : '—'; };
     const record = (material, qty, extra, detail) => {
-      const t = { id: `TX-${Date.now().toString().slice(-6)}-${++seq}`, material, type: 'Outward', qty, unit: material === 'Powder Color' ? 'kg' : 'm', color: '', sku: '', mm: '', company: '', colorName: '', order: o.id, job: job(material), staff: actor, enteredBy: actor, date: today(), notes: `Issued for ${o.id}`, ...extra };
+      const t = { id: `TX-${Date.now().toString().slice(-6)}-${++seq}`, material, type: 'Outward', qty, unit: material === 'Powder Color' ? 'kg' : 'm', color: '', sku: '', mm: '', company: '', code: '', colorName: '', order: o.id, job: job(material), staff: actor, enteredBy: actor, date: today(), notes: `Issued for ${o.id}`, ...extra };
       db.transactions.unshift(t);
       issued.push({ material, qty, unit: t.unit, detail, tx: t.id, short: false });
       return issued[issued.length - 1];
     };
 
-    for (const it of o.items || []) {
+    for (const [index, it] of (o.items || []).entries()) {
       const line = it.sku || it.name;
       const rope = num(it.ropeRequired);
       if (rope > 0) {
@@ -143,12 +144,16 @@
           shortages.push(`Rope ${it.ropeCode || '(no code)'} ${it.doriColour || ''}: not found in rope stock`);
         }
       }
-      const fabric = num(it.fabricRequired);
-      if (fabric > 0) {
+      // Fabric is issued separately for the seat, cushion and extra cushion (each has its own code and company).
+      const parts = window.UmamiFabric ? UmamiFabric.partsOf(it) : [{ key: '', label: '', code: it.fabricCode || '', company: it.fabricCompany || '', qty: num(it.fabricRequired) }];
+      for (const f of parts) {
+        const fabric = num(f.qty);
+        if (fabric <= 0) continue;
         const item = inv('Fabric'), have = available(item);
-        const entry = record('Fabric', fabric, { company: it.fabricCompany || '', notes: `Issued for ${o.id} · ${line}${it.fabricCode ? ` · fabric ${it.fabricCode}` : ''}` }, `${[it.fabricCompany, it.fabricCode].filter(Boolean).join(' · ') || 'Fabric'} · ${line}`);
+        const entry = record('Fabric', fabric, { company: f.company || '', code: f.code || '', notes: `Issued for ${o.id} · ${line}${f.label ? ` · ${f.label.toLowerCase()} fabric` : ''}${f.code ? ` ${f.code}` : ''}` }, `${f.label ? `${f.label} · ` : ''}${[f.company, f.code].filter(Boolean).join(' · ') || 'Fabric'} · ${line}`);
+        Object.assign(entry, { line: index, part: f.key, company: f.company || '', code: f.code || '' });
         item.consumed += fabric;
-        if (have < fabric) { entry.short = true; shortages.push(`Fabric: needs ${fmt(fabric)} m, ${fmt(Math.max(0, have))} m in stock`); }
+        if (have < fabric) { entry.short = true; shortages.push(`Fabric${f.label ? ` (${f.label.toLowerCase()})` : ''}: needs ${fmt(fabric)} m, ${fmt(Math.max(0, have))} m in stock`); }
       }
       const powder = num(it.powderKg);
       if (powder > 0) {

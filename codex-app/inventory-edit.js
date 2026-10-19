@@ -16,13 +16,15 @@
   /* Apply (sign 1) or reverse (sign -1) an entry's effect on stock, as the server does. */
   function applyLocal(t, sign) {
     const q = sign * num(t.qty);
-    if (t.material === 'Rope' && t.sku && (t.type === 'Incoming' || t.type === 'Outward') && ropeSheetData) {
+    if (t.material === 'Rope' && t.sku && (t.type === 'Incoming' || t.type === 'Outward' || t.type === 'Adjustment') && ropeSheetData) {
       const rows = ropeSheetData.stock_master || (ropeSheetData.stock_master = []);
-      let row = rows.find(r => same(r['Rope Type (SKU)'], t.sku) && same(r.mm, `${t.mm}mm`) && same(r.Color, t.color));
+      const size = v => String(v ?? '').trim().replace(/\s*mm$/i, '').trim().toLowerCase();
+      let row = rows.find(r => same(r['Rope Type (SKU)'], t.sku) && size(r.mm) === size(t.mm) && same(r.Color, t.color));
       if (!row) { row = { 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Opening Stock (m)': '0', 'Total Purchased (m)': '0', 'Total Outward (m)': '0', 'Current Balance (m)': '0', '': '' }; rows.push(row); }
       const current = row['Current Balance (m)'] === '' || row['Current Balance (m)'] == null
         ? num(row['Opening Stock (m)']) + num(row['Total Purchased (m)']) - num(row['Total Outward (m)']) : num(row['Current Balance (m)']);
       if (t.type === 'Incoming') { row['Total Purchased (m)'] = String(num(row['Total Purchased (m)']) + q); row['Current Balance (m)'] = String(current + q); }
+      else if (t.type === 'Adjustment') row['Current Balance (m)'] = String(current + q); // a stock count correction
       else { row['Total Outward (m)'] = String(num(row['Total Outward (m)']) + q); row['Current Balance (m)'] = String(current - q); }
       localStorage.setItem('umami-rope-inventory-v1', JSON.stringify(ropeSheetData));
       return;
@@ -34,6 +36,8 @@
     else if (t.type === 'Wastage') item.wastage += q;
     else item.adjustments += q;
   }
+
+  window.umamiApplyStock = applyLocal;
 
   /* ---------- Ledger: hide replaced entries, add Edit, mark edited ones; Adjust stock on the cards ---------- */
   const baseRenderInventory = window.renderInventory;
@@ -63,7 +67,7 @@
     if (t.type === 'Adjustment') return `<div class="field"><label>Adjustment (${t.unit || (t.material === 'Powder Color' ? 'kg' : 'm')}, use − to reduce)</label><input name="qty" type="number" step="0.1" value="${esc(t.qty)}" required></div>`;
     const typeSel = `<div class="field"><label>Movement</label><select name="type">${['Incoming', 'Outward'].map(x => `<option ${x === (t.type === 'Consumption' ? 'Outward' : t.type) ? 'selected' : ''}>${x}</option>`).join('')}</select></div>`;
     if (t.material === 'Rope') return `${typeSel}<div class="field"><label>Colour</label><input name="color" value="${esc(t.color)}"></div><div class="field"><label>SKU</label><input name="sku" value="${esc(t.sku)}"></div><div class="field"><label>MM (rope size)</label><input name="mm" value="${esc(t.mm)}"></div><div class="field"><label>Quantity (m)</label><input name="qty" type="number" min="0.1" step="0.1" value="${esc(t.qty)}" required></div>`;
-    if (t.material === 'Fabric') return `${typeSel}<div class="field"><label>Company</label><select name="company">${FABRIC_COMPANIES.map(c => `<option ${same(c, t.company) ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div><div class="field"><label>Meters</label><input name="qty" type="number" min="0.1" step="0.1" value="${esc(t.qty)}" required></div>`;
+    if (t.material === 'Fabric') return `${typeSel}<div class="field"><label>Company</label><select name="company">${FABRIC_COMPANIES.map(c => `<option ${same(c, t.company) ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div><div class="field"><label>Fabric code</label><input name="code" value="${esc(t.code || '')}" maxlength="60"></div><div class="field"><label>Meters</label><input name="qty" type="number" min="0.1" step="0.1" value="${esc(t.qty)}" required></div>`;
     return `${typeSel}<div class="field"><label>Colour name</label><input name="colorName" value="${esc(t.colorName)}"></div><div class="field"><label>Weight (kg)</label><input name="qty" type="number" min="0.1" step="0.1" value="${esc(t.qty)}" required></div>`;
   }
 
@@ -83,7 +87,7 @@
     const actor = currentActor();
     const t = {
       ...old, id: `TX-${Date.now().toString().slice(-6)}-E`, qty, type: old.type === 'Adjustment' ? 'Adjustment' : d.type || old.type,
-      color: d.color ?? old.color, sku: d.sku ?? old.sku, mm: d.mm ?? old.mm, company: d.company ?? old.company, colorName: d.colorName ?? old.colorName,
+      color: d.color ?? old.color, sku: d.sku ?? old.sku, mm: d.mm ?? old.mm, company: d.company ?? old.company, code: d.code ?? old.code ?? '', colorName: d.colorName ?? old.colorName,
       replaces: old.id, editedBy: actor, editedAt: new Date().toISOString(), reason: d.reason, staff: old.staff, enteredBy: old.enteredBy,
     };
     delete t.replacedBy;

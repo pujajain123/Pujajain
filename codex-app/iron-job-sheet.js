@@ -1,6 +1,7 @@
-/* Iron Work and Rope Work job sheets: the same layout as the "UMAMI STUDIO - IRON WORK JOB SHEET" spreadsheet
-   (header fields, then one row per product with its photo), editable by admin and staff, downloadable as PDF or Excel.
-   The two sheets differ only in their last four columns. */
+/* Iron Work, Rope Work and Fabric Work job sheets: the same layout as the "UMAMI STUDIO - IRON WORK JOB SHEET"
+   spreadsheet (header fields, then one row per product with its photo), editable by admin and staff, downloadable as
+   PDF or Excel. The sheets differ only in their last columns; the fabric sheet has one row per product part
+   (seat, cushion, extra cushion), each with its own fabric code, company and metres. */
 (function () {
   const BASE_COLUMNS = [['sku', 'SKU'], ['product', 'Product Name'], ['qty', 'Qty'], ['dimensions', 'Dimensions']];
   const SHEETS = {
@@ -16,8 +17,19 @@
       fromItem: it => ({ ropeCode: it.ropeCode || '', doriColour: it.doriColour || '', ropeRequired: it.ropeRequired || '' }),
       blank: () => ({ ropeCode: '', doriColour: '', ropeRequired: '' }),
     },
+    'Fabric Work': {
+      label: 'Fabric work', file: 'Fabric', title: 'UMAMI STUDIO - FABRIC WORK JOB SHEET',
+      columns: [...BASE_COLUMNS, ['part', 'Part'], ['fabricCode', 'Fabric Code'], ['fabricCompany', 'Fabric Company'], ['fabricRequired', 'Fabric Required (m)']],
+      // One row per part that has fabric; a product with no fabric yet gets one empty seat row.
+      expand: it => {
+        const parts = window.UmamiFabric ? UmamiFabric.partsOf(it) : [{ key: 'seat', label: 'Seat', code: it.fabricCode || '', company: it.fabricCompany || '', qty: it.fabricRequired || 0 }];
+        const used = parts.filter(p => p.qty > 0 || p.code || p.company);
+        return (used.length ? used : parts.slice(0, 1)).map(p => ({ partKey: p.key, part: p.label, fabricCode: p.code || '', fabricCompany: p.company || '', fabricRequired: p.qty || '' }));
+      },
+      blank: () => ({ part: '', fabricCode: '', fabricCompany: '', fabricRequired: '' }),
+    },
   };
-  const NUMERIC = new Set(['qty', 'ropeRequired']);
+  const NUMERIC = new Set(['qty', 'ropeRequired', 'fabricRequired']);
   const sheetFor = j => SHEETS[j.p.name];
   const LIBS = {
     jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -31,9 +43,11 @@
   function ensureSheet(j) {
     const { o, p } = j, cfg = sheetFor(j);
     if (p.sheet) return p.sheet;
+    const rows = (it, i) => (cfg.expand ? cfg.expand(it) : [cfg.fromItem(it)])
+      .map((extra, n) => ({ item: i, sku: it.sku || '', product: it.name || '', qty: it.qty ?? '', dimensions: it.dimensions || '', ...extra, photoData: n === 0 ? it.photoData || '' : '' }));
     const lines = o.items?.length
-      ? o.items.map((it, i) => ({ item: i, sku: it.sku || '', product: it.name || '', qty: it.qty ?? '', dimensions: it.dimensions || '', ...cfg.fromItem(it), photoData: it.photoData || '' }))
-      : [{ sku: '', product: o.product || '', qty: o.qty ?? '', dimensions: '', ...cfg.blank(), ...(p.name === 'Rope Work' && p.required ? { ropeRequired: p.required } : {}), photoData: o.photoData || '' }];
+      ? o.items.flatMap(rows)
+      : [{ sku: '', product: o.product || '', qty: o.qty ?? '', dimensions: '', ...cfg.blank(), ...(p.name === 'Rope Work' && p.required ? { ropeRequired: p.required } : {}), ...(p.name === 'Fabric Work' && p.required ? { fabricRequired: p.required } : {}), photoData: o.photoData || '' }];
     p.sheet = { projectNo: o.client || '', date: o.orderDate || '', preparedBy: o.createdBy || '', jobSheetNo: o.id, expectedDelivery: p.due || o.deadline || '', projectName: o.product || '', lines };
     return p.sheet;
   }
@@ -252,9 +266,10 @@
     await loadScript(LIBS.exceljs);
     const wb = new window.ExcelJS.Workbook();
     const ws = wb.addWorksheet(`${cfg.file} Job Sheet`, { pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-    ws.columns = [{ width: 16 }, { width: 40 }, { width: 8 }, { width: 22 }, { width: 18 }, { width: 18 }, { width: 18 }];
+    ws.columns = [16, 40, 8, 22, ...cfg.columns.slice(4).map(() => 18)].map(width => ({ width }));
+    const last = String.fromCharCode(64 + cfg.columns.length);
     const thin = { style: 'thin', color: { argb: 'FF000000' } }, border = { top: thin, left: thin, bottom: thin, right: thin };
-    ws.mergeCells('A2:G2');
+    ws.mergeCells(`A2:${last}2`);
     Object.assign(ws.getCell('A2'), { value: cfg.title });
     ws.getCell('A2').font = { bold: true, size: 16 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const pair = (labelRef, valueRange, label, value) => {
@@ -267,7 +282,7 @@
     pair('A5', 'B5:B5', 'Date', longDate(s.date));
     pair('D5', 'E5:F5', 'Expected Delivery', longDate(s.expectedDelivery));
     pair('A6', 'B6:B6', 'Prepared By', s.preparedBy);
-    pair('A8', 'B8:G8', 'Project Name', s.projectName);
+    pair('A8', `B8:${last}8`, 'Project Name', s.projectName);
     ws.getCell('B8').alignment = { horizontal: 'center' };
     const head = ws.getRow(10);
     cfg.columns.forEach(([, l], i) => { const c = head.getCell(i + 1); c.value = l; c.font = { bold: true }; c.border = border; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } }; });

@@ -5,8 +5,9 @@ const dir = 'codex-app';
 const read = (f) => fs.readFileSync(`${dir}/${f}`, 'utf8');
 const js = (f) => `<script>\n${read(f).replace(/<\/script/gi, '<\\/script')}\n</script>`;
 let html = read('index.html');
-html = html.replace('<link rel="stylesheet" href="styles.css" />', `<style>\n${read('styles.css')}\n</style>`);
-for (const f of ['seed-data.js', 'seed.js', 'app.js', 'portal-updates.js', 'iron-job-sheet.js', 'portal-v2.js', 'order-materials.js', 'inventory-edit.js', 'artifact-auth.js']) html = html.replace(`<script src="${f}"></script>`, js(f));
+// Function replacements: the inlined code may contain $& or $1, which a replacement string would expand.
+html = html.replace('<link rel="stylesheet" href="styles.css" />', () => `<style>\n${read('styles.css')}\n</style>`);
+for (const f of ['seed-data.js', 'seed.js', 'app.js', 'portal-updates.js', 'iron-job-sheet.js', 'portal-v2.js', 'order-materials.js', 'order-fabric.js', 'inventory-edit.js', 'stock-items.js', 'global-search.js', 'artifact-auth.js']) html = html.replace(`<script src="${f}"></script>`, () => js(f));
 html = html.replace('src="umami-logo.png"', `src="data:image/png;base64,${fs.readFileSync(`${dir}/umami-logo.png`).toString('base64')}"`);
 const head = /<head>([\s\S]*?)<\/head>/i.exec(html)[1].replace(/<meta[^>]*>\s*/gi, '').replace(/<title>[\s\S]*?<\/title>/i, '');
 const body = /<body>([\s\S]*?)<\/body>/i.exec(html)[1];

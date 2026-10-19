@@ -1,6 +1,6 @@
 /* Server mode start-up: sign-in, set-password and change-password screens, then the dashboard with server data. */
 (() => {
-  const APP_SCRIPTS = ['app.js', 'portal-updates.js', 'iron-job-sheet.js', 'portal-v2.js', 'order-materials.js', 'inventory-edit.js', 'server-sync.js'];
+  const APP_SCRIPTS = ['app.js', 'portal-updates.js', 'iron-job-sheet.js', 'portal-v2.js', 'order-materials.js', 'order-fabric.js', 'inventory-edit.js', 'stock-items.js', 'global-search.js', 'server-sync.js'];
   const LOGO = '<img class="auth-logo" src="/umami-logo.png" alt="Umami Studio">';
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 

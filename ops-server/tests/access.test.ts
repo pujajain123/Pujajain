@@ -362,3 +362,16 @@ test('staff see what other staff did, but not admin-only activity', async () => 
   assert.ok(!seen.includes('Admin changed a setting'));
   assert.ok((await admin.get('/api/state')).body.db.activity.some((a: { text: string }) => a.text === 'Karan counted the fabric stock'));
 });
+
+test('stock by item: fabric entries keep their code, and staff can correct a single rope by count', async () => {
+  const fab = await amit.post('/api/transactions', { transaction: { material: 'Fabric', type: 'Adjustment', qty: 12, company: 'Agora', code: 'AG-204', notes: 'New item counted' } });
+  assert.equal(fab.status, 201, JSON.stringify(fab.body));
+  assert.equal(fab.body.transaction.code, 'AG-204', 'the fabric code is saved with the entry');
+  const rope = (await admin.get('/api/state')).body.rope.stock_master.find((r: Record<string, string>) => r['Rope Type (SKU)'] && Number(r['Current Balance (m)']) > 0);
+  const balance = Number(rope['Current Balance (m)']);
+  const adj = await amit.post('/api/transactions', { transaction: { material: 'Rope', type: 'Adjustment', qty: -5, sku: rope['Rope Type (SKU)'], mm: String(rope.mm).replace(/\s*mm$/i, ''), color: rope.Color, notes: 'Stock count' } });
+  assert.equal(adj.status, 201, JSON.stringify(adj.body));
+  const after = adj.body.rope.stock_master.find((r: Record<string, string>) => r['Rope Type (SKU)'] === rope['Rope Type (SKU)'] && r.mm === rope.mm && r.Color === rope.Color);
+  assert.equal(Number(after['Current Balance (m)']), balance - 5, 'only that rope row changes');
+  assert.equal(after['Total Outward (m)'], rope['Total Outward (m)'], 'a count correction is not recorded as rope used');
+});

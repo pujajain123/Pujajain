@@ -60,6 +60,8 @@
       <datalist id="rope-skus">${ropeOptions('Rope Type (SKU)').map(c => `<option value="${esc(c)}">`).join('')}</datalist>`;
     if (material === 'Fabric') return `
       <div class="field"><label>Company</label><select name="company" required>${FABRIC_COMPANIES.map(c => `<option>${esc(c)}</option>`).join('')}</select></div>
+      <div class="field"><label>Fabric code</label><input name="code" list="fabric-code-options" placeholder="e.g. AG-204 (optional)" maxlength="60"></div>
+      <datalist id="fabric-code-options">${[...new Set(db.transactions.filter(t => t.material === 'Fabric').map(t => String(t.code || '').trim()).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <div class="field"><label>Meters</label><input name="qty" type="number" min="0.1" step="0.1" placeholder="Fabric metres" required></div>`;
     return `
       <div class="field"><label>Colour name</label><input name="colorName" placeholder="Enter powder colour" required></div>
@@ -89,7 +91,8 @@
     if (!ropeSheetData) return;
     const masters = ropeSheetData.stock_master || (ropeSheetData.stock_master = []);
     const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-    let row = masters.find(r => same(r['Rope Type (SKU)'], d.sku) && same(r.mm, `${d.mm}mm`) && same(r.Color, d.color));
+    const size = v => String(v ?? '').trim().replace(/\s*mm$/i, '').trim().toLowerCase();
+    let row = masters.find(r => same(r['Rope Type (SKU)'], d.sku) && size(r.mm) === size(d.mm) && same(r.Color, d.color));
     if (!row) { row = { 'Rope Type (SKU)': d.sku, mm: `${d.mm}mm`, Color: d.color, 'Opening Stock (m)': '0', 'Total Purchased (m)': '0', 'Total Outward (m)': '0', 'Current Balance (m)': '0', '': '' }; masters.push(row); }
     const purchased = num(row['Total Purchased (m)']), outward = num(row['Total Outward (m)']);
     const current = row['Current Balance (m)'] === '' || row['Current Balance (m)'] == null ? num(row['Opening Stock (m)']) + purchased - outward : num(row['Current Balance (m)']);
@@ -105,7 +108,7 @@
     const t = { id: `TX-${Date.now().toString().slice(-6)}`, material, type: 'Incoming', qty, unit: unitFor(material), color: '', sku: '', mm: '', company: '', colorName: '', order: '—', job: '—', staff: actor, enteredBy: actor, date: today(), notes: '' };
     let detail;
     if (material === 'Rope') { Object.assign(t, { color: d.color.trim(), sku: d.sku.trim(), mm: d.mm }); addRopePurchase({ ...t, enteredBy: actor }); detail = `${t.color} · ${t.sku} · ${t.mm} mm · ${qty} m`; }
-    else if (material === 'Fabric') { t.company = d.company; detail = `${t.company} · ${qty} m`; }
+    else if (material === 'Fabric') { t.company = d.company; t.code = String(d.code || '').trim(); detail = `${t.company}${t.code ? ` · ${t.code}` : ''} · ${qty} m`; }
     else { t.colorName = d.colorName.trim(); detail = `${t.colorName} · ${qty} kg`; }
     if (material !== 'Rope') db.inventory.find(i => i.name === material).incoming += qty;
     db.transactions.unshift(t);

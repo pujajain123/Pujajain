@@ -317,3 +317,57 @@ body.auth-mode .app-shell{display:none}
 .credentials-card textarea{width:100%;resize:vertical;font:inherit;font-size:13px}
 .credentials-card .form-actions{flex-wrap:wrap}
 .credentials-card .form-actions a{text-decoration:none}
+/* Fabric parts: seat, cushion, extra cushion */
+.fabric-parts-grid{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfa}
+.fabric-part-row{display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1fr) 120px;gap:8px;align-items:end}
+.fabric-part-name{font-size:13px;font-weight:600;padding-bottom:9px}
+.fabric-part-field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fabric-part-field small{font-size:11px;color:#7c8980}
+.fabric-part-field input,.fabric-part-field select{width:100%}
+.fabric-edit{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.fabric-edit-line{margin:10px 0 14px}
+.fabric-edit-head{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:6px}
+.fabric-edit-head span{font-size:12px;color:#7c8980}
+.modal-card.wide-modal{width:min(860px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto}
+.fabric-details-panel{margin-top:16px}
+.fabric-details-panel .panel-actions,.stock-items .panel-actions{display:flex;gap:6px;flex-wrap:wrap}
+.fabric-table tfoot td{font-weight:600;border-top:1px solid var(--line)}
+.cell-sub{display:block;color:#929b95;font-size:12px;margin-top:2px;font-weight:400}
+.empty-note{font-size:13px;color:#7c8980;margin:6px 0}
+/* Stock by item */
+.stock-items{margin-top:16px}
+.stock-items-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.stock-items-bar .inv-category-tabs{margin:0}
+.stock-items-bar .filter-search{min-width:200px;flex:0 1 260px}
+.tab-count{display:inline-block;min-width:18px;font-size:11px;color:#7c8980;background:#eef1ed;border-radius:9px;padding:0 6px;margin-left:4px}
+.stock-items-table .num-cell{white-space:nowrap}
+.stock-items-table .row-actions{text-align:right}
+.stock-flag{display:inline-block;margin-left:6px;font-size:11px;border-radius:9px;padding:1px 7px}
+.stock-flag.short{background:#fdecea;color:#b3261e}.stock-flag.empty{background:#fff4e0;color:#9a6500}
+.unassigned-row td{background:#fafbf9;color:#5f6a63}
+.flash-row td{animation:flashRow 2.4s ease-out}
+@keyframes flashRow{0%,40%{background:#fff3c4}100%{background:transparent}}
+.form-error{background:#fdecea;color:#b3261e;border-radius:6px;padding:8px 10px;font-size:13px;margin-top:10px}
+/* Header search */
+.global-search-results{max-height:min(70vh,520px);padding:6px;z-index:35}
+.stock-items-bar .inv-tab{white-space:nowrap}
+.gs-group{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a948e;padding:8px 10px 4px;font-weight:600}
+.gs-item.active{background:#eef3ee}
+.gs-item mark{background:#fff0b3;color:inherit;border-radius:2px;padding:0 1px}
+.global-search-results .empty-state small{display:block;margin-top:4px;color:#929b95}
+@media (max-width:720px){
+  .fabric-part-row{grid-template-columns:1fr 1fr}
+  .fabric-part-name{grid-column:1/-1;padding-bottom:0}
+  .fabric-part-row .fabric-part-field:last-child{grid-column:1/-1}
+  .stock-items-bar .filter-search{flex:1 1 100%}
+}
+@media (max-width:720px){
+  /* Dashboard pipeline: wrap onto two rows instead of widening the whole page on phones. */
+  .dashboard-grid>*,.lower-grid>*{min-width:0}
+  .pipeline{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:14px}
+  .pipeline-step:after{display:none}
+  .pipeline-label{white-space:normal}
+  /* Stock by item: keep item, on hand and Edit in view; the movement column is in the history below. */
+  .stock-items-table th:nth-child(3),.stock-items-table td:nth-child(3){display:none}
+  .stock-items-table{white-space:normal}
+}

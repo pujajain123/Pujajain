@@ -245,7 +245,7 @@ export async function addTransaction(me: Me, input: Row) {
     id: /^[\w-]{3,40}$/.test(String(input.id || '')) ? String(input.id) : `TX-${Date.now()}`,
     material, type, qty, unit: material === 'Powder Color' ? 'kg' : 'm',
     color: material === 'Rope' ? str(input.color) : '', sku: material === 'Rope' ? str(input.sku) : '', mm: material === 'Rope' ? str(input.mm, 20) : '',
-    company: material === 'Fabric' ? str(input.company) : '', colorName: material === 'Powder Color' ? str(input.colorName) : '',
+    company: material === 'Fabric' ? str(input.company) : '', code: material === 'Fabric' ? str(input.code, 60) : '', colorName: material === 'Powder Color' ? str(input.colorName) : '',
     order, job: str(input.job || '—', 40), staff: me.name, enteredBy: me.name, date: /^\d{4}-\d{2}-\d{2}$/.test(String(input.date)) ? input.date : now().slice(0, 10),
     notes: str(input.notes, 500),
   };
@@ -274,18 +274,22 @@ export async function addTransaction(me: Me, input: Row) {
 
 /** Posts a ledger movement: rope purchases/issues go to the rope workbook, everything else to the category totals. */
 export async function applyTransaction(t: Row, sign: 1 | -1 = 1) {
-  if (t.material === 'Rope' && t.sku && (t.type === 'Incoming' || t.type === 'Outward')) {
+  if (t.material === 'Rope' && t.sku && (t.type === 'Incoming' || t.type === 'Outward' || t.type === 'Adjustment')) {
     const locked = await get(`SELECT value FROM kv WHERE key='rope' FOR UPDATE`);
     const rope = (locked ? JSON.parse(locked.value) : null) || { stock_master: [], purchase_log: [], outward_log: [] };
     const eq = (a: unknown, b: unknown) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
     const masters = rope.stock_master || (rope.stock_master = []);
-    let row = masters.find((r: Row) => eq(r['Rope Type (SKU)'], t.sku) && eq(r.mm, `${t.mm}mm`) && eq(r.Color, t.color));
+    const size = (v: unknown) => String(v ?? '').trim().replace(/\s*mm$/i, '').trim().toLowerCase();
+    let row = masters.find((r: Row) => eq(r['Rope Type (SKU)'], t.sku) && size(r.mm) === size(t.mm) && eq(r.Color, t.color));
     if (!row) { row = { 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Opening Stock (m)': '0', 'Total Purchased (m)': '0', 'Total Outward (m)': '0', 'Current Balance (m)': '0', '': '' }; masters.push(row); }
     const purchased = num(row['Total Purchased (m)']), outward = num(row['Total Outward (m)']);
     const current = row['Current Balance (m)'] === '' || row['Current Balance (m)'] == null ? num(row['Opening Stock (m)']) + purchased - outward : num(row['Current Balance (m)']);
     const date = new Date(`${t.date}T12:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const q = sign * t.qty, note = sign < 0 ? 'Correction: entry edited' : '';
-    if (t.type === 'Incoming') {
+    if (t.type === 'Adjustment') {
+      // A stock count correction for this rope: only the balance changes.
+      row['Current Balance (m)'] = String(current + q);
+    } else if (t.type === 'Incoming') {
       row['Total Purchased (m)'] = String(purchased + q);
       row['Current Balance (m)'] = String(current + q);
       if (sign > 0) (rope.purchase_log ||= []).unshift({ Date: date, 'Rope Type (SKU)': t.sku, mm: `${t.mm}mm`, Color: t.color, 'Qty Purchased (m)': String(t.qty), Supplier: '', 'Invoice/Bill No.': '', 'Rate (per m)': '', Remarks: t.notes || `Entered by ${t.enteredBy}` });
