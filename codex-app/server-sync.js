@@ -230,9 +230,9 @@
 
   function accountsPanel() {
     if (!users) { loadUsers(); return '<section class="panel team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM ACCOUNTS</div><h2>Logins and access</h2></div></div><div class="empty-state">Loading accounts…</div></section>'; }
-    return `<section class="panel team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM ACCOUNTS</div><h2>Logins and access</h2><p>Each person has their own login. Accounts are never deleted; disable them instead.</p></div><button type="button" class="primary-button" data-action="add-staff">＋ Add staff</button></div>
+    return `<section class="panel team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM ACCOUNTS</div><h2>Logins and access</h2><p>Each person has their own login. Disable to pause someone's access; delete to remove a staff member.</p></div><button type="button" class="primary-button" data-action="add-staff">＋ Add staff</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>NAME</th><th>LOGIN</th><th>ROLE</th><th>STATUS</th><th>LAST SIGN-IN</th><th></th></tr></thead><tbody>${users.map(u => `<tr><td><strong>${esc(u.name)}</strong>${u.id === me.id ? ' <small class="demo-tag" style="color:var(--muted)">YOU</small>' : ''}</td><td>${esc(u.email)}${u.hasEmail ? '' : `<small style="display:block;color:#9ca49f">Generated login ID${u.notifyEmail ? ` · emails go to ${esc(u.notifyEmail)}` : ''}</small>`}</td><td>${u.role === 'admin' ? 'Admin' : 'Staff'}</td><td>${statusChip(u.status)}${u.mustChangePassword && u.status === 'active' ? '<small style="display:block;color:#9ca49f">Must change password</small>' : ''}</td><td>${u.lastLoginAt ? fmtTime(u.lastLoginAt) : '—'}</td>
-        <td class="account-actions">${u.status !== 'disabled' ? `<button type="button" class="compact-button" data-account-reset="${u.id}">${u.status === 'invited' ? 'New invite link' : 'Reset password'}</button>` : ''}${u.id === me.id ? '' : u.status === 'disabled' ? `<button type="button" class="compact-button" data-account-enable="${u.id}">Enable</button>` : `<button type="button" class="compact-button" data-account-disable="${u.id}">Disable</button>`}</td></tr>`).join('')}</tbody></table></div></section>`;
+        <td class="account-actions">${u.status !== 'disabled' ? `<button type="button" class="compact-button" data-account-reset="${u.id}">${u.status === 'invited' ? 'New invite link' : 'Reset password'}</button>` : ''}${u.id === me.id ? '' : u.status === 'disabled' ? `<button type="button" class="compact-button" data-account-enable="${u.id}">Enable</button>` : `<button type="button" class="compact-button" data-account-disable="${u.id}">Disable</button>`}${u.id !== me.id && u.role === 'staff' ? `<button type="button" class="compact-button danger-text" data-account-delete="${u.id}">Delete</button>` : ''}</td></tr>`).join('')}</tbody></table></div></section>`;
   }
 
   const staffBase = renderStaff;
@@ -294,15 +294,20 @@
       catch (err) { const code = copy.previousElementSibling; const range = document.createRange(); range.selectNodeContents(code); getSelection().removeAllRanges(); getSelection().addRange(range); toast('Press Ctrl+C / ⌘C to copy.'); }
       return;
     }
-    const reset = e.target.closest('[data-account-reset]'), dis = e.target.closest('[data-account-disable]'), en = e.target.closest('[data-account-enable]');
-    if (!reset && !dis && !en) return;
-    const id = (reset || dis || en).dataset[reset ? 'accountReset' : dis ? 'accountDisable' : 'accountEnable'];
+    const reset = e.target.closest('[data-account-reset]'), dis = e.target.closest('[data-account-disable]'), en = e.target.closest('[data-account-enable]'), del = e.target.closest('[data-account-delete]');
+    if (!reset && !dis && !en && !del) return;
+    const id = (reset || dis || en || del).dataset[reset ? 'accountReset' : dis ? 'accountDisable' : en ? 'accountEnable' : 'accountDelete'];
     const u = users?.find(x => String(x.id) === id);
     try {
       if (reset) {
         if (!confirm(u?.status === 'invited' ? `Create a new invite link for ${u.name}? The old link stops working.` : `Reset the password for ${u?.name}? They will be signed out everywhere.`)) return;
         const r = await request('POST', `/api/admin/users/${id}/reset-password`, {});
         showCredentials(r.password ? 'Password reset' : u?.status === 'invited' ? 'New invite link' : 'Password reset link', r);
+      } else if (del) {
+        if (!confirm(`Delete ${u?.name}? They are signed out and can never sign in again. Jobs and entries they made keep their name.`)) return;
+        await request('POST', `/api/admin/users/${id}/delete`, {});
+        await reloadState();
+        toast(`${u?.name} deleted.`);
       } else if (dis) {
         if (!confirm(`Disable ${u?.name}? They will be signed out and cannot sign in until enabled again. Their records stay.`)) return;
         await request('POST', `/api/admin/users/${id}/disable`, {});

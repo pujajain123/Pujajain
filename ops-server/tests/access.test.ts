@@ -375,3 +375,27 @@ test('stock by item: fabric entries keep their code, and staff can correct a sin
   assert.equal(Number(after['Current Balance (m)']), balance - 5, 'only that rope row changes');
   assert.equal(after['Total Outward (m)'], rope['Total Outward (m)'], 'a count correction is not recorded as rope used');
 });
+
+test('admins can delete a staff account; history keeps the name and the person can no longer sign in', async () => {
+  const fresh = (await admin.post('/api/admin/users', { name: 'Delete Me' })).body;
+  const unused = await admin.post(`/api/admin/users/${fresh.user.id}/delete`, {});
+  assert.equal(unused.status, 200, JSON.stringify(unused.body));
+  assert.ok(!(await admin.get('/api/admin/users')).body.users.some((u: { name: string }) => u.name === 'Delete Me'), 'gone from the list');
+  assert.equal(await get('SELECT 1 FROM users WHERE id=?', fresh.user.id), undefined, 'an unused account is removed completely');
+
+  const worker = (await admin.post('/api/admin/users', { name: 'Has History' })).body;
+  const c = new Client();
+  assert.equal((await c.post('/api/auth/login', { login: worker.loginId, password: worker.password })).status, 200);
+  await c.post('/api/auth/change-password', { current: worker.password, password: 'histPass1234' });
+  await c.post('/api/auth/login', { login: worker.loginId, password: 'histPass1234' });
+  assert.equal((await c.post('/api/activity', { entries: [{ entity: 'Fabric', text: 'Counted fabric' }] })).status, 201);
+  assert.equal((await amit.post(`/api/admin/users/${worker.user.id}/delete`, {})).status, 403, 'staff cannot delete accounts');
+  assert.equal((await admin.post(`/api/admin/users/${worker.user.id}/delete`, {})).status, 200);
+  assert.ok(!(await admin.get('/api/admin/users')).body.users.some((u: { name: string }) => u.name === 'Has History'));
+  assert.ok((await admin.get('/api/state')).body.db.activity.some((a: { actor: string; text: string }) => a.actor === 'Has History' && a.text === 'Counted fabric'), 'their entries keep their name');
+  assert.equal((await c.get('/api/state')).status, 401, 'signed out at once');
+  assert.equal((await new Client().post('/api/auth/login', { login: worker.loginId, password: 'histPass1234' })).status, 401, 'cannot sign in again');
+  assert.ok(!(await admin.get('/api/state')).body.people.includes('Has History'), 'no longer offered for jobs');
+  const admins = (await admin.get('/api/admin/users')).body.users.filter((u: { role: string }) => u.role === 'admin');
+  assert.equal((await admin.post(`/api/admin/users/${admins[0].id}/delete`, {})).status, 400, 'admin accounts cannot be deleted');
+});

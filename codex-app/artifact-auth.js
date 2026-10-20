@@ -350,8 +350,9 @@
     const actions = a => {
       if (a.id === me.id) return '';
       if (a.role === 'admin') return a.status !== 'disabled' && (a.hash || a.resetRequested) ? `<button type="button" class="compact-button" data-team-reset="${escHtml(a.id)}">Allow reset</button>` : '';
-      if (a.status === 'disabled') return `<button type="button" class="compact-button" data-team-enable="${escHtml(a.id)}">Enable</button>`;
-      return `<button type="button" class="compact-button" data-team-newpw="${escHtml(a.id)}">${a.hash ? 'New password' : 'Create password'}</button><button type="button" class="compact-button" data-team-disable="${escHtml(a.id)}">Disable</button>`;
+      const del = `<button type="button" class="compact-button danger-text" data-team-delete="${escHtml(a.id)}">Delete</button>`;
+      if (a.status === 'disabled') return `<button type="button" class="compact-button" data-team-enable="${escHtml(a.id)}">Enable</button>${del}`;
+      return `<button type="button" class="compact-button" data-team-newpw="${escHtml(a.id)}">${a.hash ? 'New password' : 'Create password'}</button><button type="button" class="compact-button" data-team-disable="${escHtml(a.id)}">Disable</button>${del}`;
     };
     const html = `<section class="panel team-logins team-accounts"><div class="panel-header"><div><div class="eyebrow">TEAM LOGINS</div><h2>Who can sign in</h2><p>Staff sign in with the shared email <b>${escHtml(STAFF_INBOX)}</b> and their own password. Add staff with just their name; the system creates the password for you to share.</p></div><button type="button" class="primary-button" data-team-add>＋ Add staff</button></div>
       ${team.some(a => a.resetRequested && a.status !== 'disabled') ? '<div class="report-due"><strong>Password reset requested.</strong> Click <b>New password</b> next to the staff member and share it with them (for an admin, click <b>Allow reset</b>).</div>' : ''}
@@ -384,17 +385,28 @@
   });
 
   document.addEventListener('click', async e => {
-    const reset = e.target.closest('[data-team-reset]'), dis = e.target.closest('[data-team-disable]'), en = e.target.closest('[data-team-enable]'), pw = e.target.closest('[data-team-newpw]');
+    const reset = e.target.closest('[data-team-reset]'), dis = e.target.closest('[data-team-disable]'), en = e.target.closest('[data-team-enable]'), pw = e.target.closest('[data-team-newpw]'), del = e.target.closest('[data-team-delete]');
     if (e.target.closest('[data-team-add]')) {
       document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">STAFF</div><h2>Add staff</h2><p>Enter their name. The system creates their password; you'll get the login details to share.</p></div><button class="close-button" data-close>×</button></div>
         <form id="team-add-form"><div class="form-grid"><div class="field full"><label>Name</label><input name="name" required maxlength="60" placeholder="e.g. Ravi"></div></div>
         <p class="small-note">They sign in with the shared staff email (${STAFF_INBOX}) and their own password. Their name is used when assigning jobs.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Add staff</button></div></form></section></div>`;
       return;
     }
-    if (!reset && !dis && !en && !pw) return;
-    const id = reset ? reset.dataset.teamReset : dis ? dis.dataset.teamDisable : en ? en.dataset.teamEnable : pw.dataset.teamNewpw;
+    if (!reset && !dis && !en && !pw && !del) return;
+    const id = reset ? reset.dataset.teamReset : dis ? dis.dataset.teamDisable : en ? en.dataset.teamEnable : pw ? pw.dataset.teamNewpw : del.dataset.teamDelete;
     const acc = (await accounts()).find(a => a.id === id);
     if (!acc) return;
+    if (del) {
+      if (acc.role === 'admin' || acc.id === me.id) return toast('Only staff accounts can be deleted.');
+      if (!confirm(`Delete ${acc.name}? Their login stops working at once and they are removed from Team logins and job assignment. Jobs and entries they made keep their name.`)) return;
+      await store.patch(acc.id, { status: 'removed', hash: '', salt: '', removedAt: new Date().toISOString(), removedBy: me.name });
+      const at = PEOPLE.indexOf(acc.name); if (at >= 0) PEOPLE.splice(at, 1);
+      roster = roster.filter(a => a.id !== acc.id);
+      addActivity(me.name, 'Accounts', `Deleted staff login for ${acc.name}`);
+      toast(`${acc.name} deleted.`);
+      team = null; render();
+      return;
+    }
     if (pw) {
       if (acc.hash && !confirm(`Create a new password for ${acc.name}? Their current password stops working.`)) return;
       const password = await issuePassword(acc);

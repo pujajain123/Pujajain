@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { all, get, run, now, tx, type Row } from './db.ts';
+import { all, get, run, now, tx, kvGet, kvSet, type Row } from './db.ts';
 import {
   HttpError, type Me, type Role, hashPassword, generatePassword, generateLoginId, issueToken, setPasswordLink,
   revokeSessions, logAuthEvent, appUrl,
@@ -17,7 +17,9 @@ export const publicUser = (u: Row) => ({
 });
 const userById = async (id: number) => publicUser(await get('SELECT * FROM users WHERE id=?', id));
 
-export const listUsers = async () => (await all(`SELECT * FROM users ORDER BY role, status='disabled', name`)).map(publicUser);
+// Deleted staff whose name is still on old records are kept as hidden, disabled rows (see deleteStaff).
+const removedIds = async () => new Set(await kvGet<number[]>('removedUsers', []));
+export const listUsers = async () => { const gone = await removedIds(); return (await all(`SELECT * FROM users ORDER BY role, status='disabled', name`)).filter(u => !gone.has(Number(u.id))).map(publicUser); };
 
 function cleanName(name: unknown) {
   const n = String(name ?? '').trim().replace(/\s+/g, ' ');
@@ -88,6 +90,39 @@ export async function resetPassword(actor: Me, id: unknown, req?: Request) {
   await revokeSessions(u.id);
   await logAuthEvent('password_reset', u.id, actor.id);
   return { user: await userById(u.id), loginId: u.email, password, loginLink: `${appUrl(req)}/login` };
+}
+
+/**
+ * Deletes a staff account (admins only; admin accounts cannot be deleted here). The person is signed out and can
+ * never sign in again. If nothing they recorded references the account, the row is removed completely; otherwise it
+ * is kept disabled and hidden, so the history still shows who did what.
+ */
+export async function deleteStaff(actor: Me, id: unknown) {
+  const u = await target(id);
+  if (u.id === actor.id) throw new HttpError(400, 'You cannot delete your own account.');
+  if (u.role !== 'staff') throw new HttpError(400, 'Only staff accounts can be deleted.');
+  return tx(async () => {
+    await run(`UPDATE users SET status='disabled', disabled_at=? WHERE id=?`, now(), u.id);
+    await revokeSessions(u.id);
+    await kvSet('removedNames', [...new Set([...await kvGet<string[]>('removedNames', []), u.name])]);
+    await run('DELETE FROM auth_tokens WHERE user_id=?', u.id);
+    await run('UPDATE auth_tokens SET created_by=NULL WHERE created_by=?', u.id);
+    await run('UPDATE users SET created_by=NULL WHERE created_by=?', u.id);
+    const used = await get('SELECT 1 FROM transactions WHERE user_id=? UNION ALL SELECT 1 FROM activity WHERE user_id=? LIMIT 1', u.id, u.id);
+    if (used) {
+      const gone = [...await removedIds(), u.id];
+      await kvSet('removedUsers', [...new Set(gone)]);
+      await logAuthEvent('deleted', u.id, actor.id);
+      return { deleted: true, kept: 'history' };
+    }
+    await run('DELETE FROM auth_events WHERE user_id=?', u.id);
+    await run('UPDATE auth_events SET actor_id=NULL WHERE actor_id=?', u.id);
+    await run('ALTER TABLE users DISABLE TRIGGER users_no_delete');
+    await run('DELETE FROM users WHERE id=?', u.id);
+    await run('ALTER TABLE users ENABLE TRIGGER users_no_delete');
+    await logAuthEvent('deleted', null, actor.id, u.email);
+    return { deleted: true };
+  });
 }
 
 export async function setStatus(actor: Me, id: unknown, enable: boolean) {

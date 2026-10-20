@@ -6,7 +6,7 @@ import {
   HttpError, loadMe, requireAuth, requireAdmin, createSession, setSessionCookie, verifyPassword, hashPassword,
   checkPasswordStrength, throttle, recordFailure, clearFailures, findToken, consumeToken, revokeSessions, logAuthEvent, COOKIE,
 } from './auth.ts';
-import { createUser, listUsers, resetPassword, setStatus, publicUser, forgotPassword } from './accounts.ts';
+import { createUser, listUsers, resetPassword, setStatus, deleteStaff, publicUser, forgotPassword } from './accounts.ts';
 import { readState, createOrder, updateOrder, addTransaction, addActivity, putSettings, putTracker, clearDemo, readUpload } from './workspace.ts';
 import { ensureReady, ROOT } from './setup.ts';
 
@@ -133,6 +133,7 @@ export function createApp() {
   app.post('/api/admin/users', requireAdmin, wrap(async (req, res) => res.status(201).json(await createUser(req.me!, { name: req.body?.name, email: req.body?.email, role: 'staff' }, req))));
   app.post('/api/admin/users/:id/reset-password', requireAdmin, wrap(async (req, res) => res.json(await resetPassword(req.me!, req.params.id, req))));
   app.post('/api/admin/users/:id/disable', requireAdmin, wrap(async (req, res) => res.json({ user: await setStatus(req.me!, req.params.id, false) })));
+  app.post('/api/admin/users/:id/delete', requireAdmin, wrap(async (req, res) => res.json(await deleteStaff(req.me!, req.params.id))));
   app.post('/api/admin/users/:id/enable', requireAdmin, wrap(async (req, res) => res.json({ user: await setStatus(req.me!, req.params.id, true) })));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 

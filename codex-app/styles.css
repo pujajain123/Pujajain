@@ -371,3 +371,4 @@ body.auth-mode .app-shell{display:none}
   .stock-items-table th:nth-child(3),.stock-items-table td:nth-child(3){display:none}
   .stock-items-table{white-space:normal}
 }
+.compact-button.danger-text{color:var(--red);border-color:#f0d6d3}.account-actions{white-space:nowrap}.account-actions .compact-button+.compact-button{margin-left:5px}

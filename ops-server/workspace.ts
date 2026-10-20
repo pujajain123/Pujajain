@@ -90,8 +90,10 @@ export async function readState(me: Me) {
 /** Names that can be assigned work: active staff accounts plus anyone already assigned in an order. */
 export async function people(): Promise<string[]> {
   const staff = (await all(`SELECT name FROM users WHERE role='staff' AND status<>'disabled' ORDER BY name`)).map(r => r.name as string);
+  const removed = new Set(await kvGet<string[]>('removedNames', []));
   const assigned = (await orderRows()).flatMap(r => (JSON.parse(r.data).processes || []).map((p: Process) => p.assigned)).filter(Boolean) as string[];
-  return [...new Set([...staff, ...assigned])];
+  // Deleted staff stay on their old jobs but are not offered for new work (unless someone active has that name).
+  return [...new Set([...staff, ...assigned.filter(n => !removed.has(n) || staff.includes(n))])];
 }
 
 /* ---------- Orders ---------- */
