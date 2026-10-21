@@ -60,6 +60,10 @@
   const baseMaterialStock = materialStock;
   materialStock = name => (name === 'Rope' && ropeSheetData ? stockFromWorkbook() : baseMaterialStock(name));
   window.materialStock = materialStock;
+  // Rope used is recorded per rope in the workbook (Total Outward), not in the category total.
+  const baseMaterialUsed = materialUsed;
+  materialUsed = m => (m.name === 'Rope' && ropeSheetData ? Math.round((ropeSheetData.stock_master || []).reduce((n, r) => n + safeNumber(r['Total Outward (m)']), 0) * 10) / 10 : baseMaterialUsed(m));
+  window.materialUsed = materialUsed;
 
   // Keep exactly the three requested material categories in the inventory UI.
   db.inventory = ['Rope', 'Fabric', 'Powder Color'].map(name => inventoryItem(name) || ({

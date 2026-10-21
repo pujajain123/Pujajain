@@ -372,3 +372,7 @@ body.auth-mode .app-shell{display:none}
   .stock-items-table{white-space:normal}
 }
 .compact-button.danger-text{color:var(--red);border-color:#f0d6d3}.account-actions{white-space:nowrap}.account-actions .compact-button+.compact-button{margin-left:5px}
+/* Side menu: the page links scroll on their own so the help card and account button never cover them (phones, short laptop screens). */
+#navigation{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.sidebar-bottom{flex:0 0 auto;padding-top:8px}
+@media (max-height:820px){.help-card p,.help-card .help-icon{display:none}.help-card{padding:8px 11px;margin-bottom:8px}.help-card strong{font-size:13px;margin-right:6px}}
