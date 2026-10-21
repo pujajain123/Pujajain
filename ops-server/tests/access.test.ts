@@ -399,3 +399,12 @@ test('admins can delete a staff account; history keeps the name and the person c
   const admins = (await admin.get('/api/admin/users')).body.users.filter((u: { role: string }) => u.role === 'admin');
   assert.equal((await admin.post(`/api/admin/users/${admins[0].id}/delete`, {})).status, 400, 'admin accounts cannot be deleted');
 });
+
+test('any password is accepted (no length or character rules), only an empty one is refused', async () => {
+  const made = (await admin.post('/api/admin/users', { name: 'Simple Pass' })).body;
+  const c = new Client();
+  assert.equal((await c.post('/api/auth/login', { login: made.loginId, password: made.password })).status, 200);
+  assert.equal((await c.post('/api/auth/change-password', { current: made.password, password: '' })).status, 400, 'empty is refused');
+  assert.equal((await c.post('/api/auth/change-password', { current: made.password, password: '1' })).status, 200, 'a one-character password is fine');
+  assert.equal((await new Client().post('/api/auth/login', { login: made.loginId, password: '1' })).status, 200);
+});

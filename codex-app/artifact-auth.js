@@ -62,9 +62,9 @@
     const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 150000 }, key, 256);
     return { salt: hex(salt), hash: hex(bits) };
   }
+  // Any password the person wants (the owner's choice); it only cannot be empty.
   function checkStrength(pw) {
-    if (pw.length < 8) throw new Error('Use at least 8 characters.');
-    if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) throw new Error('Use at least one letter and one number.');
+    if (!pw) throw new Error('Enter a password.');
   }
 
   // Readable system password: no look-alike characters (0/O, 1/l/I), always a letter and a number.
@@ -112,7 +112,7 @@
       catch (err) { error.textContent = err.message || 'Something went wrong. Try again.'; error.hidden = false; button.disabled = false; button.textContent = label; }
     });
   }
-  const rules = '<p class="auth-hint">At least 8 characters, with a letter and a number.</p>';
+  const rules = '<p class="auth-hint">Choose any password you like.</p>';
 
   // Step 1: email (and, for the shared staff inbox, which person).
   async function showEmail(note = '', prefill = '') {
@@ -304,7 +304,7 @@
       document.querySelector('#role-menu').hidden = true;
       document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">YOUR ACCOUNT</div><h2>Change password</h2><p>${escHtml(me.email)}</p></div><button class="close-button" data-close>×</button></div>
         <form id="artifact-password-form"><div class="form-grid"><div class="field full"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div><div class="field"><label>New password</label><input name="password" type="password" autocomplete="new-password" required></div><div class="field"><label>Confirm new password</label><input name="confirm" type="password" autocomplete="new-password" required></div></div>
-        <p class="small-note">At least 8 characters, with a letter and a number.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Save password</button></div></form></section></div>`;
+        <p class="small-note">Choose any password you like.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Save password</button></div></form></section></div>`;
     }
   });
   document.addEventListener('submit', async e => {

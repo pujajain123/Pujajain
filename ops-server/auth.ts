@@ -30,7 +30,7 @@ declare global {
 export const COOKIE = 'umami_ops_session';
 const SESSION_DAYS = 14;
 export const TOKEN_HOURS = 48;
-export const MIN_PASSWORD = 8;
+export const MIN_PASSWORD = 1; // any password the person wants; it only cannot be empty
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -57,9 +57,9 @@ export function generatePassword(): string {
 }
 
 export function checkPasswordStrength(pw: unknown): string {
-  if (typeof pw !== 'string' || pw.length < MIN_PASSWORD) throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters.`);
-  if (pw.length > 200) throw new HttpError(400, 'Password is too long.');
-  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) throw new HttpError(400, 'Use at least one letter and one number.');
+  // No rules on length or characters (the owner's choice); only an empty password is refused.
+  if (typeof pw !== 'string' || pw.length < MIN_PASSWORD) throw new HttpError(400, 'Enter a password.');
+  if (pw.length > 1000) throw new HttpError(400, 'Password is too long.');
   return pw;
 }
 

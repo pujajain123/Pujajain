@@ -213,8 +213,8 @@
 
   function openChangePassword() {
     document.querySelector('#overlay-root').innerHTML = `<div class="modal-backdrop center"><section class="modal-card"><div class="modal-heading"><div><div class="eyebrow">YOUR ACCOUNT</div><h2>Change password</h2><p>${esc(me.email)}</p></div><button class="close-button" data-close>×</button></div>
-      <form id="account-password-form"><div class="form-grid"><div class="field full"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div><div class="field"><label>New password</label><input name="password" type="password" minlength="8" autocomplete="new-password" required></div><div class="field"><label>Confirm new password</label><input name="confirm" type="password" minlength="8" autocomplete="new-password" required></div></div>
-      <p class="small-note">At least 8 characters, with a letter and a number. Other devices you are signed in on will be signed out.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Save password</button></div></form></section></div>`;
+      <form id="account-password-form"><div class="form-grid"><div class="field full"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div><div class="field"><label>New password</label><input name="password" type="password" autocomplete="new-password" required></div><div class="field"><label>Confirm new password</label><input name="confirm" type="password" autocomplete="new-password" required></div></div>
+      <p class="small-note">Choose any password you like. Other devices you are signed in on will be signed out.</p><div class="form-actions"><button type="button" class="secondary-button" data-close>Cancel</button><button class="primary-button">Save password</button></div></form></section></div>`;
   }
 
   /* ---------- Staff accounts (admin) ---------- */

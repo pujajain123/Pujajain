@@ -20,7 +20,7 @@
     root.querySelector('input:not([readonly])')?.focus();
     return root;
   }
-  const passwordRules = '<p class="auth-hint">At least 8 characters, with a letter and a number. Don\'t reuse a password from another person or site.</p>';
+  const passwordRules = '<p class="auth-hint">Choose any password you like.</p>';
   function bindForm(root, handler) {
     const form = root.querySelector('form'), error = root.querySelector('.auth-error'), button = form.querySelector('button[type=submit]');
     form.addEventListener('submit', async e => {
@@ -65,8 +65,8 @@
     catch (err) { screen(`<h1>Link not valid</h1><div class="auth-error">${esc(err.message)}</div><a class="secondary-button auth-submit" href="/login">Go to sign in</a>`); return; }
     const root = screen(`<h1>${info.purpose === 'reset' ? 'Choose a new password' : 'Set your password'}</h1><p class="auth-sub">Hi ${esc(info.name)}. This link works once and expires ${esc(new Date(info.expiresAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}.</p>
       <form class="auth-form"><label class="field"><span>Email</span><input name="email" value="${esc(info.email)}" readonly aria-readonly="true" autocomplete="username"></label>
-      <label class="field"><span>New password</span><input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
-      <label class="field"><span>Confirm password</span><input name="confirm" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label class="field"><span>New password</span><input name="password" type="password" autocomplete="new-password" required></label>
+      <label class="field"><span>Confirm password</span><input name="confirm" type="password" autocomplete="new-password" required></label>
       ${passwordRules}<div class="auth-error" role="alert" hidden></div><button class="primary-button auth-submit" type="submit">Save password and sign in</button></form>`);
     bindForm(root, async d => { matchCheck(d); await api('/api/auth/set-password', { token, password: d.password }); location.replace('/'); });
   }
@@ -75,8 +75,8 @@
     const root = screen(`<h1>Choose your own password</h1><p class="auth-sub">You signed in with a temporary password. Set a new one to continue.</p>
       <form class="auth-form"><label class="field"><span>Login ID</span><input value="${esc(user.email)}" readonly autocomplete="username"></label>
       <label class="field"><span>Temporary password</span><input name="current" type="password" autocomplete="current-password" required></label>
-      <label class="field"><span>New password</span><input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
-      <label class="field"><span>Confirm new password</span><input name="confirm" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label class="field"><span>New password</span><input name="password" type="password" autocomplete="new-password" required></label>
+      <label class="field"><span>Confirm new password</span><input name="confirm" type="password" autocomplete="new-password" required></label>
       ${passwordRules}<div class="auth-error" role="alert" hidden></div><button class="primary-button auth-submit" type="submit">Save and continue</button>
       <button type="button" class="quiet-button auth-submit" data-auth-logout>Sign out</button></form>`);
     root.querySelector('[data-auth-logout]').addEventListener('click', async () => { await api('/api/auth/logout', {}); location.replace('/login'); });
