@@ -36,7 +36,7 @@
 
   function showLogin(message) {
     history.replaceState(null, '', '/login');
-    const root = screen(`<h1>Sign in</h1><p class="auth-sub">Use the email or login ID your admin gave you.</p>
+    const root = screen(`<h1>Sign in</h1><p class="auth-sub">Staff: use the staff email <b>admin@umamistudio.in</b> and your own password.</p>
       ${message ? `<div class="auth-note">${esc(message)}</div>` : ''}
       <form class="auth-form" autocomplete="on"><label class="field"><span>Email or login ID</span><input name="login" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>

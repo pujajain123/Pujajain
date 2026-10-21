@@ -11,6 +11,11 @@
    security boundary: the page and its data are only as private as who the link is shared with. */
 (() => {
   const STAFF_INBOX = 'admin@umamistudio.in';
+  // Emails staff may type to reach the staff sign-in (the shared inbox, and the address the owner also uses).
+  const STAFF_EMAILS = [STAFF_INBOX, 'admin@gmail.com'];
+  // A pasted password often carries a stray space; accept it with or without.
+  const variants = pw => (pw.trim() && pw.trim() !== pw ? [pw, pw.trim()] : [pw]);
+  const matches = async (pw, acc) => { for (const v of variants(pw)) if ((await hashPassword(v, acc.salt)).hash === acc.hash) return true; return false; };
   const SEED_ACCOUNTS = [
     { id: 'khushboo', name: 'Khushboo', email: 'khushboo@umamistudio.in', role: 'admin' },
     { id: 'bhavya', name: 'Bhavya', email: 'bhavya@umamistudio.in', role: 'admin' },
@@ -78,7 +83,7 @@
   async function passwordOwner(pw, list, { activeOnly = false, except = '' } = {}) {
     for (const a of list) {
       if (!isStaffLogin(a) || !a.hash || a.id === except || (activeOnly && a.status === 'disabled')) continue;
-      if ((await hashPassword(pw, a.salt)).hash === a.hash) return a;
+      if (await matches(pw, a)) return a;
     }
     return null;
   }
@@ -123,7 +128,7 @@
       <button type="button" class="text-button auth-link" data-forgot>Forgot password?</button>`);
     root.querySelector('[data-forgot]').addEventListener('click', () => showForgot(root.querySelector('[name=email]').value));
     bind(root, async d => {
-      if (norm(d.email) === STAFF_INBOX) return showStaffPassword();
+      if (STAFF_EMAILS.includes(norm(d.email))) return showStaffPassword();
       const matches = (await accounts()).filter(a => norm(a.email) === norm(d.email) && a.status !== 'disabled');
       if (!matches.length) throw new Error('This email does not have access. Ask an admin to add you.');
       if (matches.length === 1) return showPassword(matches[0]);
@@ -143,7 +148,9 @@
     root.querySelector('[data-back]').addEventListener('click', () => showEmail());
     root.querySelector('[data-forgot]').addEventListener('click', () => showForgot(STAFF_INBOX));
     bind(root, async d => {
-      const acc = await passwordOwner(d.password, await accounts(), { activeOnly: true });
+      const list = await accounts();
+      const acc = await passwordOwner(d.password, list, { activeOnly: true });
+      if (!acc && !store.shared && window.claude && !list.some(isStaffLogin)) throw new Error('Team logins could not be loaded on this device. Open the dashboard from the link your admin shared (signed in to claude.ai), then try again.');
       if (!acc) throw new Error('That password is incorrect. Ask your admin if you need a new one.');
       signIn(acc);
     });
@@ -188,7 +195,7 @@
     root.querySelector('[data-back]').addEventListener('click', () => showEmail());
     root.querySelector('[data-forgot]').addEventListener('click', () => requestReset(acc));
     bind(root, async d => {
-      const { hash } = await hashPassword(d.password, acc.salt);
+      const hash = (await matches(d.password, acc)) ? acc.hash : null;
       if (hash !== acc.hash) throw new Error('That password is incorrect.');
       signIn(acc);
     });
@@ -313,7 +320,7 @@
     const d = Object.fromEntries(new FormData(e.target));
     try {
       const acc = (await accounts()).find(a => a.id === me.id);
-      if ((await hashPassword(d.current, acc.salt)).hash !== acc.hash) throw new Error('Your current password is incorrect.');
+      if (!(await matches(d.current, acc))) throw new Error('Your current password is incorrect.');
       if (d.password !== d.confirm) throw new Error('The two new passwords do not match.');
       checkStrength(d.password);
       if (isStaffLogin(acc) && await passwordOwner(d.password, await accounts(), { except: acc.id })) throw new Error('That password cannot be used. Choose a different one.');

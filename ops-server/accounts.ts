@@ -2,13 +2,27 @@ import type { Request } from 'express';
 import { all, get, run, now, tx, kvGet, kvSet, type Row } from './db.ts';
 import {
   HttpError, type Me, type Role, hashPassword, generatePassword, generateLoginId, issueToken, setPasswordLink,
-  revokeSessions, logAuthEvent, appUrl,
+  revokeSessions, logAuthEvent, appUrl, verifyPassword,
 } from './auth.ts';
 import { sendMail, inviteEmail, resetEmail } from './mailer.ts';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 /** A shared team inbox: staff entered with it get their own generated login ID, and their links are emailed there. */
 export const SHARED_INBOX = (process.env.OPS_SHARED_STAFF_EMAIL ?? 'admin@umamistudio.in').trim().toLowerCase();
+/** Emails every staff member can sign in with, together with their own password (the password tells who it is). */
+export const STAFF_EMAILS = new Set([SHARED_INBOX, 'admin@gmail.com', ...String(process.env.OPS_STAFF_EMAIL_ALIASES || '').split(',')].map(s => s.trim().toLowerCase()).filter(Boolean));
+
+/** A pasted password often carries a stray space; accept it with or without. */
+export const passwordVariants = (pw: string) => (pw.trim() && pw.trim() !== pw ? [pw, pw.trim()] : [pw]);
+
+/** The active staff member whose password this is (staff share one sign-in email). */
+export async function staffByPassword(pw: string, exceptId?: number) {
+  for (const u of await all(`SELECT * FROM users WHERE role='staff' AND status='active' AND password_hash IS NOT NULL ORDER BY id`)) {
+    if (Number(u.id) === exceptId) continue;
+    if (passwordVariants(pw).some(v => verifyPassword(v, u.password_hash))) return u;
+  }
+  return null;
+}
 const mailTo = (u: Row) => u.notify_email || (u.has_email ? u.email : null);
 
 export const publicUser = (u: Row) => ({
@@ -77,7 +91,8 @@ async function target(id: unknown) {
 export async function resetPassword(actor: Me, id: unknown, req?: Request) {
   const u = await target(id);
   if (u.status === 'disabled') throw new HttpError(400, 'Enable this account before resetting its password.');
-  if (mailTo(u)) {
+  // Staff always get a new password the admin can share (email is not set up for them); admins get an email link.
+  if (mailTo(u) && u.role !== 'staff') {
     const token = await issueToken(u.id, u.status === 'invited' ? 'invite' : 'reset', actor.id);
     const link = setPasswordLink(token, req);
     const mail = await sendMail(mailTo(u), ...Object.values((u.status === 'invited' ? inviteEmail : resetEmail)(u.name, link, u.email)) as [string, string]);
@@ -86,7 +101,8 @@ export async function resetPassword(actor: Me, id: unknown, req?: Request) {
     return { user: await userById(u.id), ...(u.notify_email ? { loginId: u.email } : {}), resetLink: link, sentTo: mailTo(u), emailSent: mail.sent, emailError: mail.error };
   }
   const password = generatePassword();
-  await run('UPDATE users SET password_hash=?, must_change_password=1 WHERE id=?', hashPassword(password), u.id);
+  await run(`UPDATE users SET password_hash=?, must_change_password=1, status='active' WHERE id=?`, hashPassword(password), u.id);
+  await run('UPDATE auth_tokens SET used_at=? WHERE user_id=? AND used_at IS NULL', now(), u.id);
   await revokeSessions(u.id);
   await logAuthEvent('password_reset', u.id, actor.id);
   return { user: await userById(u.id), loginId: u.email, password, loginLink: `${appUrl(req)}/login` };

@@ -6,7 +6,7 @@ import {
   HttpError, loadMe, requireAuth, requireAdmin, createSession, setSessionCookie, verifyPassword, hashPassword,
   checkPasswordStrength, throttle, recordFailure, clearFailures, findToken, consumeToken, revokeSessions, logAuthEvent, COOKIE,
 } from './auth.ts';
-import { createUser, listUsers, resetPassword, setStatus, deleteStaff, publicUser, forgotPassword } from './accounts.ts';
+import { createUser, listUsers, resetPassword, setStatus, deleteStaff, publicUser, forgotPassword, STAFF_EMAILS, staffByPassword, passwordVariants } from './accounts.ts';
 import { readState, createOrder, updateOrder, addTransaction, addActivity, putSettings, putTracker, clearDemo, readUpload } from './workspace.ts';
 import { ensureReady, ROOT } from './setup.ts';
 
@@ -50,11 +50,15 @@ export function createApp() {
     const login = String(req.body?.login ?? '').trim().toLowerCase(), password = String(req.body?.password ?? '');
     const key = `${req.ip}|${login}`;
     await throttle(key);
-    const u = await get('SELECT * FROM users WHERE email=?', login);
-    if (!u || u.status !== 'active' || !verifyPassword(password, u.password_hash)) {
+    // Staff can sign in with the shared staff email and their own password, or with their own login ID.
+    const shared = STAFF_EMAILS.has(login);
+    const u = shared ? await staffByPassword(password) : await get('SELECT * FROM users WHERE email=?', login);
+    if (!u || u.status !== 'active' || !passwordVariants(password).some(p => verifyPassword(p, u.password_hash))) {
       await recordFailure(key);
       if (u) await logAuthEvent('login_failed', u.id, null);
-      throw new HttpError(401, u?.status === 'disabled' ? 'This account is disabled. Contact an admin.' : 'Email/login ID or password is incorrect.');
+      throw new HttpError(401, u?.status === 'disabled' ? 'This account is disabled. Contact an admin.'
+        : u?.status === 'invited' ? 'This login is not set up yet. Ask your admin to click "Reset password" next to your name and share the new password.'
+        : shared ? 'That password is incorrect. Ask your admin if you need a new one.' : 'Email/login ID or password is incorrect.');
     }
     await clearFailures(key);
     await run('UPDATE users SET last_login_at=? WHERE id=?', now(), u.id);
@@ -94,6 +98,8 @@ export function createApp() {
     if (!t) throw new HttpError(404, 'This link is not valid. Ask an admin for a new one.');
     if ('invalid' in t) throw new HttpError(410, t.invalid);
     const password = checkPasswordStrength(req.body?.password);
+    const owner = await get('SELECT role FROM users WHERE id=?', t.user_id);
+    if (owner?.role === 'staff' && await staffByPassword(password, t.user_id)) throw new HttpError(400, 'That password cannot be used. Choose a different one.');
     await tx(async () => {
       await consumeToken(t.id);
       await run(`UPDATE users SET password_hash=?, must_change_password=0, status='active' WHERE id=?`, hashPassword(password), t.user_id);
@@ -107,9 +113,11 @@ export function createApp() {
   app.post('/api/auth/change-password', wrap(async (req, res) => {
     if (!req.me) throw new HttpError(401, 'Please sign in.', 'signed_out');
     const u = await get('SELECT * FROM users WHERE id=?', req.me.id);
-    if (!verifyPassword(String(req.body?.current ?? ''), u.password_hash)) throw new HttpError(400, 'Your current password is incorrect.');
+    if (!passwordVariants(String(req.body?.current ?? '')).some(p => verifyPassword(p, u.password_hash))) throw new HttpError(400, 'Your current password is incorrect.');
     const password = checkPasswordStrength(req.body?.password);
     if (verifyPassword(password, u.password_hash)) throw new HttpError(400, 'Choose a password different from the current one.');
+    // Staff share one sign-in email, so each staff password must be their own.
+    if (u.role === 'staff' && await staffByPassword(password, u.id)) throw new HttpError(400, 'That password cannot be used. Choose a different one.');
     await run('UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?', hashPassword(password), u.id);
     await revokeSessions(u.id, req.sessionHash);
     await logAuthEvent('password_changed', u.id, u.id);

@@ -207,13 +207,15 @@ test('disable signs the user out, blocks login, and users are never deleted', as
   assert.equal((await admin.post(`/api/admin/users/${self}/disable`)).status, 400);
 });
 
-test('admin password reset issues a fresh single-use link and signs the user out', async () => {
+test('resetting a staff password gives a new password to share and signs the person out', async () => {
   const id = (await get('SELECT id FROM users WHERE email=?', 'amit@example.com')).id;
   const r = await admin.post(`/api/admin/users/${id}/reset-password`);
   assert.equal(r.status, 200);
-  assert.ok(r.body.resetLink);
+  assert.ok(r.body.password, 'staff get a password, not an emailed link');
   assert.equal((await amit.get('/api/state')).status, 401);
-  amit = await activate(r.body.resetLink, 'amitNew1234');
+  amit = new Client();
+  assert.equal((await amit.post('/api/auth/login', { login: 'amit@example.com', password: r.body.password })).status, 200);
+  assert.equal((await amit.post('/api/auth/change-password', { current: r.body.password, password: 'amitNew1234' })).status, 200);
   assert.equal((await amit.get('/api/state')).status, 200);
 });
 
@@ -235,23 +237,28 @@ test('cross-site and non-JSON writes are rejected', async () => {
   assert.equal(cross.status, 403);
 });
 
-test('staff sharing the team inbox each get their own login; links go to the inbox', async () => {
-  const a = await admin.post('/api/admin/users', { name: 'Meera Joshi', email: 'Admin@umamistudio.in' });
-  const b = await admin.post('/api/admin/users', { name: 'Sanjay Das', email: 'admin@umamistudio.in' });
-  assert.equal(a.status, 201, JSON.stringify(a.body));
-  assert.equal(b.status, 201, JSON.stringify(b.body));
-  assert.equal(a.body.loginId, 'meera.joshi@umami.app');
-  assert.equal(b.body.loginId, 'sanjay.das@umami.app');
-  assert.equal(a.body.sentTo, 'admin@umamistudio.in');
-  assert.ok(await get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%'`));
-  const meera = await activate(a.body.inviteLink, 'meeraPass123');
-  assert.equal((await meera.get('/api/auth/me')).body.user.email, 'meera.joshi@umami.app');
-  const login = await new Client().post('/api/auth/login', { login: 'meera.joshi@umami.app', password: 'meeraPass123' });
-  assert.equal(login.status, 200);
-  const id = (await get('SELECT id FROM users WHERE email=?', 'sanjay.das@umami.app')).id;
-  const reset = await admin.post(`/api/admin/users/${id}/reset-password`);
-  assert.equal(reset.body.sentTo, 'admin@umamistudio.in');
-  assert.ok(reset.body.resetLink);
+test('staff sign in with the shared staff email and their own password', async () => {
+  const a = (await admin.post('/api/admin/users', { name: 'Meera Joshi' })).body;
+  const b = (await admin.post('/api/admin/users', { name: 'Sanjay Das' })).body;
+  const first = new Client();
+  assert.equal((await first.post('/api/auth/login', { login: 'Admin@UmamiStudio.in', password: a.password })).status, 200, 'temporary password works with the shared email');
+  assert.equal((await first.get('/api/auth/me')).body.user.name, 'Meera Joshi');
+  assert.equal((await first.post('/api/auth/change-password', { current: a.password + ' ', password: 'meera' })).status, 200, 'a pasted trailing space is fine');
+  const sb = new Client();
+  await sb.post('/api/auth/login', { login: 'admin@umamistudio.in', password: b.password });
+  assert.equal((await sb.post('/api/auth/change-password', { current: b.password, password: 'meera' })).status, 400, 'a password another staff member uses is refused');
+  assert.equal((await sb.post('/api/auth/change-password', { current: b.password, password: 'sanjay' })).status, 200);
+  const who = async (login: string, password: string) => { const c = new Client(); const r = await c.post('/api/auth/login', { login, password }); return r.status === 200 ? (await c.get('/api/auth/me')).body.user.name : r.status; };
+  assert.equal(await who('admin@umamistudio.in', 'meera'), 'Meera Joshi');
+  assert.equal(await who('admin@umamistudio.in', 'sanjay '), 'Sanjay Das', 'pasted space ignored');
+  assert.equal(await who('admin@gmail.com', 'sanjay'), 'Sanjay Das', 'admin@gmail.com works too');
+  assert.equal(await who('meera.joshi@umami.app', 'meera'), 'Meera Joshi', 'the login ID still works');
+  assert.equal(await who('admin@umamistudio.in', 'nobody'), 401);
+  // A staff member added the old way (with an email, waiting for a link) gets a password from "New password".
+  const old = (await admin.post('/api/admin/users', { name: 'Old Invite', email: 'admin@umamistudio.in' })).body;
+  const fixed = (await admin.post(`/api/admin/users/${old.user.id}/reset-password`)).body;
+  assert.ok(fixed.password);
+  assert.equal(await who('admin@umamistudio.in', fixed.password), 'Old Invite');
 });
 
 test('forgot password emails a single-use link only for accounts in the database', async () => {
@@ -271,8 +278,8 @@ test('forgot password emails a single-use link only for accounts in the database
   assert.equal((await new Client().post('/api/auth/login', { login: 'neha@example.com', password: 'nehaNew12345' })).status, 200);
   assert.equal((await new Client().post('/api/auth/set-password', { token: tokenOf(link), password: 'again12345' })).status, 410);
 
-  await new Client().post('/api/auth/forgot', { login: 'meera.joshi@umami.app' });
-  assert.ok(await get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%meera.joshi@umami.app%' AND body LIKE '%reset was requested%'`), 'generated login IDs: link goes to the staff inbox');
+  await new Client().post('/api/auth/forgot', { login: 'old.invite@umami.app' });
+  assert.ok(await get(`SELECT 1 FROM email_outbox WHERE to_addr='admin@umamistudio.in' AND body LIKE '%old.invite@umami.app%' AND body LIKE '%reset was requested%'`), 'login IDs linked to the staff inbox: link goes to the staff inbox');
 });
 
 test('developer temporary passwords: applied once to never-used first accounts, then must be changed', async () => {
